@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 66_EPG.pm 21010 2020-01-18 16:00:00Z HomeAuto_User $
+# $Id: 66_EPG.pm 21010 2020-02-16 23:10:00Z HomeAuto_User $
 #
 # Github - FHEM Home Automation System
 # https://github.com/fhem/EPG
@@ -14,8 +14,11 @@
 # *.xz      -> ohne Dateiendung nach unpack
 #################################################################
 # Note´s
-# -
-# -
+# - test option teXXas with this standings
+#
+# - refresh browser window, any browser no refreh
+#   - YES - Mozilla Firefox 72.0.2
+#   - NO  - Microsoft Edge 
 #################################################################
 
 package main;
@@ -25,6 +28,13 @@ use warnings;
 
 use HttpUtils;					# https://wiki.fhem.de/wiki/HttpUtils
 use Data::Dumper;
+
+use constant {
+	EPG_FW_errmsg_time      => 5000, # milliseconds
+	EPG_InternalTimer_DELAY => 2,    # seconds
+	EPG_Temp_ChSortNumbre   => 999,
+	EPG_VERSION             => "20200216_pre_release_expanded",
+};
 
 my %EPG_transtable_EN = ( 
 		## Days ##
@@ -48,13 +58,17 @@ my %EPG_transtable_EN = (
 		"months10"            =>  "October",
 		"months11"            =>  "November",
 		"months12"            =>  "December",
+		## EPG_Attr ##
+		"DownloadFile"        =>  "Please search for new available channels.",
+		"Variant_mod"         =>  "Please search for new available channels. The names have changed.",
 		## EPG_Get ##
 		"get_available_ch"    =>  "available_channels search",
 		"get_loadEPG"         =>  "started",
 		"get_view_FTUI_data"  =>  "no data exists",
 		"Notify_auto_msg"     =>  "automatic process",
 		## EPG_FW_Detail ##
-		"btn_fav"             =>  "FavoriteShow",
+		"btn_FavDesc"         =>  "Fav Desc",
+		"btn_FavTitle"        =>  "Fav Title",
 		"btn_now"             =>  "Now",
 		"btn_prime"           =>  "PrimeTime",
 		"control_pan_btn"     =>  "list of all available channels",
@@ -72,11 +86,10 @@ my %EPG_transtable_EN = (
 		## EPG_FW_Popup_Channels ##
     "active"              =>  "active",
     "no"                  =>  "no.",
-    "tv_fav"              =>  "FAV",
+    "tv_fav"              =>  "sort",
     "tv_name"             =>  "TV station name",
 		## EPG_FW_set_Attr_Channels ##
     "set_Attr_Ch_eq"      =>  "no channel selected",
-    "set_Attr_Ch_state"   =>  "EPG available with get loadEPG command",
 		## EPG_ParseHttpResponse ##
 		"ParseHttp_Http_URL"  =>  "DownloadURL was not found",
 		"ParseHttp_Http_file" =>  "DownloadFile was not found on URL",
@@ -97,6 +110,7 @@ my %EPG_transtable_EN = (
 		"chDone_msg_OK2"      =>  "available_channels loaded, Please select channel on Control panel",
 		## EPG_nonBlock_loadEPG_v1Done ##
 		"loadEPG_v1Done"      =>  "decode_json failed, use verbose 5 to view more",
+		"loadEPG_v1Done_STOP" =>  "automatic download STOP, no current data. Please check your source!",
 		## EPG_nonBlock_loadEPG ##
 		"loadEPG_msg1"        =>  "all EPG channel information processed",
 		"loadEPG_msg2"        =>  "no EPG channel information available",
@@ -127,13 +141,17 @@ my %EPG_transtable_EN = (
 		"months10"            =>  "Oktober",
 		"months11"            =>  "November",
 		"months12"            =>  "Dezember",
+		## EPG_Attr ##
+		"DownloadFile"        =>  "Bitte suchen Sie nach neuen verfügbaren Kanälen.",
+		"Variant_mod"         =>  "Bitte suchen Sie nach neuen verfügbaren Kanälen. Die Namen haben sich geändert.",
 		## EPG_Get ##
 		"get_available_ch"    =>  "verfügbare Kanäle werden gesucht",
 		"get_loadEPG"         =>  "gestartet",
 		"get_view_FTUI_data"  =>  "keine Daten vorhanden",
 		"Notify_auto_msg"     =>  "automatischer Prozess",
 		## EPG_FW_Detail ##
-		"btn_fav"             =>  "Lieblingssendung",
+		"btn_FavDesc"         =>  "Fav Beschreibung",
+		"btn_FavTitle"        =>  "Fav Titel",
 		"btn_now"             =>  "derzeit",
 		"btn_prime"           =>  "PrimeTime",
 		"control_pan_btn"     =>  "Liste der verfügbaren Kanäle",
@@ -151,11 +169,10 @@ my %EPG_transtable_EN = (
 		## EPG_FW_Popup_Channels ##
     "active"              =>  "aktiv",
     "no"                  =>  "Nr.",
-    "tv_fav"              =>  "FAV",
+    "tv_fav"              =>  "sort",
     "tv_name"             =>  "TV Sendername",
 		## EPG_FW_set_Attr_Channels ##
     "set_Attr_Ch_eq"      =>  "keinen Kanal ausgewählt",
-    "set_Attr_Ch_state"   =>  "EPG verfügbar mit dem Befehl get loadEPG",
 		## EPG_ParseHttpResponse ##
 		"ParseHttp_Http_URL"  =>  "DownloadURL wurde nicht gefunden",
 		"ParseHttp_Http_file" =>  "DownloadFile wurde in der URL nicht gefunden",
@@ -173,9 +190,10 @@ my %EPG_transtable_EN = (
     ## EPG_nonBlock_available_channelsDone ##
 		"chDone_state1"       =>  "unbekannte Methode, Entwicklung notwendig",
 		"chDone_msg_OK"       =>  "EPG mit get loadEPG Befehlen verfügbar",
-		"chDone_msg_OK2"      =>  "verfügbaren Kanäle geladen! Bitte mit dem Bedienfeld Ihren Kanal auswählen.",
+		"chDone_msg_OK2"      =>  "verfügbare Kanäle geladen! Bitte mit dem Bedienfeld Ihren Kanal auswählen.",
 		## EPG_nonBlock_loadEPG_v1Done ##
 		"loadEPG_v1Done"      =>  "decode_json fehlgeschlagen, bitte benutze verbose 5 um mehr zu erkennen",
+		"loadEPG_v1Done_STOP" =>  "automatischer Download STOP, keine aktuellen Daten. Bitte überprüfen Sie Ihre Quelle!",
 		## EPG_nonBlock_loadEPG ##
 		"loadEPG_msg1"        =>  "alle EPG Daten verarbeitet",
 		"loadEPG_msg2"        =>  "keine EPG Daten verfügbar",
@@ -195,8 +213,6 @@ eval "use JSON;1" or $missingModulEPG .= "JSON || libjson-perl, ";
 eval "use XML::Simple;1" or $missingModulEPG .= "XML::Simple || libxml-simple-perl, ";
 
 my @tools = ("gzip","xz");
-my @channel_available;
-my $HTML = {};
 
 #####################
 sub EPG_Initialize($) {
@@ -211,21 +227,17 @@ sub EPG_Initialize($) {
   $hash->{FW_detailFn}           = "EPG_FW_Detail";
 	$hash->{FW_deviceOverview}     = 1;
 	$hash->{FW_addDetailToSummary} = 1;  # displays html in fhemweb room-view
-	$hash->{AttrList}              =	"Ch_select Ch_sort Ch_Info_to_Reading:yes,no Ch_Commands:textField-long ".
+	$hash->{AttrList}              =	"Ch_select Ch_sort Ch_Info_to_Reading:yes,no Ch_commands:textField-long ".
                                     "DownloadFile DownloadURL HTTP_TimeOut ".
 																		"EPG_auto_download:yes,no EPG_auto_update:yes,no ".
-																		"FavoriteShows ".
+																		"FavTitle FavDesc ".
                                     "Table:on,off Table_view_Subtitle:no,yes disable ".
                                     "Variant:Rytec,TvProfil_XMLTV,WebGrab+Plus,XMLTV.se,teXXas_RSS";
 												             #$readingFnAttributes;
 
 	## in any attribute redefinition readjust language ##
-	my $lang = AttrVal("global","language","EN");
-  if($lang eq "DE") {
-		$EPG_tt = \%EPG_transtable_DE;
-	} else {
-		$EPG_tt = \%EPG_transtable_EN;
-	}
+	my $lang = uc(AttrVal("global","language","EN"));
+	$EPG_tt = $lang eq "DE" ? \%EPG_transtable_DE : \%EPG_transtable_EN;
 }
 
 #####################
@@ -242,12 +254,8 @@ sub EPG_Define($$) {
 	return "Usage: define <name> $name"  if(@arg != 2);
 
   ## readjust language ##
-  my $lang = AttrVal("global","language","EN");
-  if( $lang eq "DE"){
-    $EPG_tt = \%EPG_transtable_DE;
-  } else {
-    $EPG_tt = \%EPG_transtable_EN;
-  }
+	my $lang = uc(AttrVal("global","language","EN"));
+	$EPG_tt = $lang eq "DE" ? \%EPG_transtable_DE : \%EPG_transtable_EN;
 
 	if ($init_done) {
 		if (!defined(AttrVal($autocreateName, "disable", undef)) && !exists($defs{$filelogName})) {
@@ -271,7 +279,7 @@ sub EPG_Define($$) {
 		CommandAttr($hash,"$name room $typ") if (!defined AttrVal($name, "room", undef));				# set room, if only undef --> new def
 	}
 
-	$hash->{VERSION} = "20200117";
+	$hash->{VERSION} = EPG_VERSION;
 
 	### default value´s ###
 	readingsBeginUpdate($hash);
@@ -286,6 +294,8 @@ sub EPG_Set($$$@) {
 	my $setList = "";
 	my $cmd = $a[0];
 
+	$hash->{VERSION} = EPG_VERSION if ($hash->{VERSION} && $hash->{VERSION} ne EPG_VERSION);
+
 	return "$name: no set function exists" if ($cmd ne "?");
 	return $setList if ( $a[0] eq "?");
 	return undef;
@@ -294,22 +304,27 @@ sub EPG_Set($$$@) {
 #####################
 sub EPG_Get($$$@) {
 	my ( $hash, $name, $cmd, @a ) = @_;
-	my $cmd2 = $a[0];
+	my $cmd2 = defined $a[0] ? $a[0] : "";
+	my $room = AttrVal($name, "room", "");
 	my $DownloadFile = AttrVal($name, "DownloadFile", undef);
 	my $DownloadURL = AttrVal($name, "DownloadURL", undef);
 	my $Variant = AttrVal($name, "Variant", "unknown");
-	$cmd2 = "" if (!$cmd2);
+	my $FW_wname = !$FW_wname ? "WEB" : $FW_wname;
+	my @Channels_available;
+	@Channels_available = \@{$hash->{helper}{Channels_available}} if ($hash->{helper}{Channels_available});
 
-	my $getlist = "loadFile:noArg jsonEPG:noArg ";
+	my $getlist = "loadFile:noArg ";
+	$getlist.= "jsonEPG:noArg " if (scalar(@Channels_available) > 0);
 	$getlist.= "available_channels:noArg " if (ReadingsVal($name, "HttpResponse", undef) && 
 	                                           ReadingsVal($name, "HttpResponse", undef) eq $EPG_tt->{"ParseHttp_Http_ok"} &&
                                              ReadingsVal($name, "EPG_file_name", undef) ne $EPG_tt->{"File_check_DownFile"});
-	$getlist.= "loadEPG_Fav:noArg " if (AttrVal($name, "FavoriteShows", undef) && $Variant ne "unknown" &&
-	                                    AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "" &&
-																	    scalar(@channel_available) > 0 );
+	if ($Variant ne "unknown" && AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "" && scalar(@Channels_available) > 0 ) {
+		$getlist.= "loadEPG_FavDesc:noArg " if (AttrVal($name, "FavDesc", undef));
+		$getlist.= "loadEPG_FavTitle:noArg " if (AttrVal($name, "FavTitle", undef));
+	}
 
 	## reset old JSON value if modul reload
-	delete $hash->{helper}{FTUI_data} if ($cmd eq "?" && scalar(@channel_available) == 0 && exists $hash->{helper}{FTUI_data});
+	delete $hash->{helper}{FTUI_data} if ($cmd eq "?" && scalar(@Channels_available) == 0 && exists $hash->{helper}{FTUI_data});
 
 	if ($cmd ne "?") {
 		return "ERROR: Attribute DownloadURL or DownloadFile not right defined - Please check!\n\n<u>example:</u>\n".
@@ -320,17 +335,13 @@ sub EPG_Get($$$@) {
 		## check directory and create ##
 		if (! -d "./FHEM/EPG") {
 			my $ok = mkdir("FHEM/EPG");
-			if ($ok == 1) {
-				Log3 $name, 4, "$name: Get - directory automatic created ($!)"; 
-			} else {
-				Log3 $name, 4, "$name: Get - directory check - ERROR $ok";
-			}
+			my $text = $ok == 1 ? "directory automatic created ($!)" : "directory check - ERROR $ok";
+			Log3 $name, 4, "$name: Get - ".$text;
 		}
 	}
 
 	if ($cmd eq "loadFile") {
-		FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "FW_errmsg('$name: ".$EPG_tt->{"Notify_auto_msg"}." $cmd' , 5000)", "");
-
+		FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:$FW_wname", "FW_errmsg('$name: ".$EPG_tt->{"Notify_auto_msg"}." $cmd' , ".EPG_FW_errmsg_time.")", "");
 		EPG_PerformHttpRequest($hash);
 		return undef;
 	}
@@ -340,9 +351,9 @@ sub EPG_Get($$$@) {
 		EPG_File_check($hash);
 		return "ERROR: no EPG_file found! Please use \"get $name loadFile\" and try again." if (not ReadingsVal($name, "EPG_file_name", undef));
 
-		FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "FW_errmsg('$name: ".$EPG_tt->{"Notify_auto_msg"}." $cmd' , 5000)", "");
+		FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:$FW_wname", "FW_errmsg('$name: ".$EPG_tt->{"Notify_auto_msg"}." $cmd' , ".EPG_FW_errmsg_time.")", "");
 		Log3 $name, 4, "$name: get $cmd - starting blocking call";
-		@channel_available = ();
+		delete $hash->{helper}{Channels_available};
 
 		readingsSingleUpdate($hash, "state", $EPG_tt->{"get_available_ch"}, 1);
     $hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_available_channels", $name."|".ReadingsVal($name, "EPG_file_name", undef), "EPG_nonBlock_available_channelsDone", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
@@ -362,69 +373,61 @@ sub EPG_Get($$$@) {
 	}
 
 	if ($Variant eq "Rytec" || $Variant eq "TvProfil_XMLTV" || $Variant eq "WebGrab+Plus" || $Variant eq "XMLTV.se") {
-		if ( AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "" && scalar(@channel_available) > 0 ) {
+		if ( AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "" && scalar(@Channels_available) > 0 ) {
 			$getlist.= "loadEPG_now:noArg ";               # now
 			$getlist.= "loadEPG_Prime:noArg ";             # Primetime
 			$getlist.= "loadEPG_today:noArg ";             # today all
+			$getlist.= "loadEPG_time " ;                   # flex time
+		}
 
+		if ($cmd eq "loadEPG_time") {
 			my $TimeNowMod = FmtDateTime(time());
 			$TimeNowMod =~ s/-|:|\s//g;
 
-			# every hour list #
-			my $loadEPG_list = "";
-			for my $d (substr($TimeNowMod,8, 2) +1 .. 23) {
-				$loadEPG_list.= substr($TimeNowMod,0, 8)."_".sprintf("%02s",$d)."00,";
-			}
-
-			if ($loadEPG_list =~ /,$/) {
-				$loadEPG_list = substr($loadEPG_list,0, -1);
-				$getlist.= "loadEPG:".$loadEPG_list." " ;
-			}
+			return "ERROR: your time failed (example: get $name $cmd ".substr($TimeNowMod,0, 8)."_".substr($TimeNowMod,8, 4).")" if ($cmd2 eq "");
+			return "ERROR: your time is not valid (example: get $name $cmd ".substr($TimeNowMod,0, 8)."_".substr($TimeNowMod,8, 4).")" if ($cmd2 !~ /\d{8}_\d{4}/);
 		}
 
+		## loadEPG_Prime | loadEPG_now | loadEPG_time | loadEPG_today ##
 		if ($cmd =~ /^loadEPG/ && $cmd !~ /loadEPG_Fav/) {
-			FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "FW_errmsg('$name: ".$EPG_tt->{"Notify_auto_msg"}." $cmd' , 5000)", "");
+			FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:$FW_wname", "FW_errmsg('$name: ".$EPG_tt->{"Notify_auto_msg"}." $cmd' , ".EPG_FW_errmsg_time.")", "");
 
-			$HTML = {};
-			if ($hash->{helper}{autoload} && $hash->{helper}{autoload} eq "yes") {
-				delete $hash->{helper}{autoload} if(defined($hash->{helper}{autoload}));
+			delete $hash->{helper}{HTML} if(defined($hash->{helper}{HTML}));
+			if ($hash->{helper}{HTML_reload} && $hash->{helper}{HTML_reload} eq "yes") {
+				delete $hash->{helper}{HTML_reload} if(defined($hash->{helper}{HTML_reload}));
 			} else {
 				readingsSingleUpdate($hash, "state", "$cmd ".$EPG_tt->{"get_loadEPG"}, 1);						
 			}
 
 			Log3 $name, 4, "$name: get $cmd - starting blocking call";
-
 			$hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_loadEPG_v1", $name."|".ReadingsVal($name, "EPG_file_name", undef)."|".$cmd."|".$cmd2, "EPG_nonBlock_loadEPG_v1Done", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
 			return undef;
 		}
 
+		## loadEPG_FavTitle | loadEPG_FavDesc ##
 		if ($cmd =~ /^loadEPG_Fav/) {
 			readingsSingleUpdate($hash, "state", "$cmd ".$EPG_tt->{"get_loadEPG"}, 1);
-			Log3 $name, 4, "$name: get $cmd - looking for favorite shows with $Variant";
+			Log3 $name, 4, "$name: get $cmd - looking for $cmd with $Variant";
 
+			delete $hash->{helper}{HTML} if(defined($hash->{helper}{HTML}));
 			$hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_loadEPG_v1", $name."|".ReadingsVal($name, "EPG_file_name", undef)."|".$cmd."|".$cmd2, "EPG_nonBlock_loadEPG_v1Done", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
 			return undef;
 		}
 	}
 
 	if ($Variant eq "teXXas_RSS" ) {
-		if (AttrVal($name, "Ch_select", undef) && scalar(@channel_available) > 0 && AttrVal($name, "Ch_select", undef) ne "") {
-			$getlist.= "loadEPG_now:noArg " if ($hash->{helper}{programm} && $hash->{helper}{programm} eq "now" && AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "");
-			$getlist.= "loadEPG_Prime:noArg " if ($hash->{helper}{programm} && $hash->{helper}{programm} eq "20:15" && AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "");
+		if (AttrVal($name, "Ch_select", undef) && scalar(@Channels_available) > 0 && AttrVal($name, "Ch_select", undef) ne "") {
+			$getlist.= "loadEPG_now:noArg " if ($hash->{helper}{Programm} && $hash->{helper}{Programm} eq "now" && AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "");
+			$getlist.= "loadEPG_Prime:noArg " if ($hash->{helper}{Programm} && $hash->{helper}{Programm} eq "20:15" && AttrVal($name, "Ch_select", undef) && AttrVal($name, "Ch_select", undef) ne "");
 		}
  		
 		if ($cmd =~ /^loadEPG/ && $cmd !~ /^loadEPG_Fav/) {
-			$HTML = {};
+			delete $hash->{helper}{HTML} if(defined($hash->{helper}{HTML}));
 			readingsSingleUpdate($hash, "state", "$cmd ".$EPG_tt->{"get_loadEPG"}, 1);
 			Log3 $name, 4, "$name: get $cmd - starting blocking call";
 
 			$hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_loadEPG_v2", $name."|".ReadingsVal($name, "EPG_file_name", undef)."|".$cmd."|".$cmd2, "EPG_nonBlock_loadEPG_v2Done", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
 			return undef;
-		}
-
-		if ($cmd =~ /loadEPG_Fav/) {
-			Log3 $name, 3, "$name: get $cmd - looking for favorite shows with $Variant";
-			return "still in development - $cmd on $Variant";
 		}
 	}
 
@@ -436,14 +439,12 @@ sub EPG_Attr() {
 	my ($cmd, $name, $attrName, $attrValue) = @_;
 	my $hash = $defs{$name};
 	my $typ = $hash->{TYPE};
-
+	my $FW_wname = !$FW_wname ? "WEB" : $FW_wname;
+	my $Variant = AttrVal($name, "Variant", undef);
+	
   ## in any attribute redefinition readjust language ##
-  my $lang = AttrVal("global","language","EN");
-  if( $lang eq "DE"){
-    $EPG_tt = \%EPG_transtable_DE;
-  } else {
-    $EPG_tt = \%EPG_transtable_EN;
-  }
+	my $lang = uc(AttrVal("global","language","EN"));
+	$EPG_tt = $lang eq "DE" ? \%EPG_transtable_DE : \%EPG_transtable_EN;
 
 	if ($cmd eq "set" && $init_done == 1 ) {
 		if ($attrName eq "Ch_Info_to_Reading" && $attrValue eq "no") {
@@ -454,31 +455,75 @@ sub EPG_Attr() {
 			return "Your website entry must end with /\n\nexample: $attrValue/" if ($attrValue !~ /.*\/$/);
 			return "Your input must begin with http:// or https://" if ($attrValue !~ /^htt(p|ps):\/\//);
 		}
-		
+
+		if ($attrName eq "DownloadFile" && $attrValue ne AttrVal($name, "DownloadFile", undef)) {
+			readingsDelete($hash,"EPG_file_last_timestamp") if(ReadingsVal($name, "EPG_file_last_timestamp", undef));
+			readingsDelete($hash,"EPG_last_loaded") if(ReadingsVal($name, "EPG_last_loaded", undef));
+
+			delete $attr{$name}{Ch_sort} if ($attr{$name}{Ch_sort});
+			delete $attr{$name}{Ch_select} if ($attr{$name}{Ch_select});
+
+			readingsSingleUpdate($hash, "state" , $EPG_tt->{"DownloadFile"}, 1);
+		}
+
 		if ($attrName eq "HTTP_TimeOut") {
 			return "to small (standard 10)" if ($attrValue < 5);
 			return "to long (standard 10)" if ($attrValue > 90);
 		}
 
-		if ($attrName eq "FavoriteShows") {
-			FW_directNotify("FILTER=room=$name", "#FHEMWEB:WEB", "location.reload('true')", "");
+		if ($attrName eq "FavDesc" || $attrName eq "FavTitle") {
+			FW_directNotify("FILTER=room=$FW_room", "#FHEMWEB:$FW_wname", "location.reload('true')", "");
 		}
 
-		if ($attrName eq "Ch_Commands") {
+		if ($attrName eq "Ch_commands") {
 			return "ERROR: The command must informat { \" \" => \" \" }" if ($attrValue !~ /\s?+{\X+=>\X+}/);
 			my $err = perlSyntaxCheck($attrValue, ());   # check PERL Code
 			return $err if($err);
+
+			## check syntax and set Ch_command device to list "Probably associated with" ##
+			if( $attrValue =~ m/^\{.*\}$/s && $attrValue =~ m/=>/ && $attrValue !~ m/\$/ ) {
+				my $av = eval $attrValue;
+				if( $@ ) {
+					Log3 $name, 3, "$name: Attr - $attrName, ERROR: ". $@;
+				} else {
+					my $Ch_commands = $av if( ref($av) eq "HASH" );
+					my $associatedWith = "";
+
+					foreach my $d (keys %{$Ch_commands}) {
+						if ($Ch_commands->{$d} =~ /(get|set)\s(\w+)\s/) {
+							if ($2) {
+								Log3 $name, 5, "$name: Attr - $attrName, PawList | found: ".$2;
+								if (not grep /$2/, $associatedWith) {
+									$associatedWith = $associatedWith eq "" ? $2 : $associatedWith.",".$2;
+								}
+							}
+						}
+					}
+					CommandSetReading(undef, "$name .associatedWith $associatedWith");
+				}
+			} else {
+				return "ERROR: $attrName are wrong format";
+			}
+		}
+
+		if ($attrName eq "Variant" && $attrValue ne $Variant) {
+			delete $attr{$name}{Ch_sort} if ($attrName eq "Ch_select" && $attr{$name}{Ch_sort});
+			delete $attr{$name}{Ch_select} if ($attrName eq "Ch_sort" && $attr{$name}{Ch_select});
+
+			EPG_Reset_HELPER($hash);
+			readingsSingleUpdate($hash, "state" , $EPG_tt->{"Variant_mod"}, 1);
 		}
 	}
 
 	if ($cmd eq "del") {
 		EPG_readingsDeleteChannel($hash) if ($attrName eq "Ch_Info_to_Reading");
-		FW_directNotify("FILTER=room=$name", "#FHEMWEB:WEB", "location.reload('true')", "") if ($attrName eq "FavoriteShows");
+		FW_directNotify("FILTER=room=$FW_room", "#FHEMWEB:$FW_wname", "location.reload('true')", "") if ($attrName eq "FavDesc" || $attrName eq "FavTitle");
 
-		if ($attrName eq "Variant") {
-			delete $hash->{helper}{programm} if ($hash->{helper}{programm});
-			return undef;
+		if ($attrName eq "Ch_commands") {
+			readingsDelete($hash,".associatedWith") if(ReadingsVal($name, ".associatedWith", undef));
 		}
+
+		EPG_Reset_HELPER($hash) if ( $attrName eq "Variant"	);
 	}
 }
 
@@ -486,36 +531,34 @@ sub EPG_Attr() {
 sub EPG_FW_Detail($@) {
 	my ($FW_wname, $name, $room, $pageHash) = @_;
 	my $hash = $defs{$name};
-	my $Ch_Commands = AttrVal($name,"Ch_Commands", undef);
+	my $Ch_commands = AttrVal($name,"Ch_commands", undef);
 	my $Ch_select = AttrVal($name, "Ch_select", undef);
 	my $EPG_auto_update = AttrVal($name, "EPG_auto_update", "no");
-	my $HTML_Fav = 0;
+	my $HTML = $hash->{helper}{HTML};
+	my $HTML_cnt = defined $hash->{helper}{HTML_data_counter} ? $hash->{helper}{HTML_data_counter} : 0;
 	my $Table = AttrVal($name, "Table", "on");
 	my $Table_view_Subtitle = "";
 	my $Variant = AttrVal($name, "Variant", undef);
-	my $cnt_ch = 0;
 	my $cnt_ch_select = 0;
 	my $html_site = "";
-	my @Channels_value;
+	my @Channels_select;
+	my @Channels_available;
+	@Channels_available = @{$hash->{helper}{Channels_available}} if ($hash->{helper}{Channels_available});
 
   ## readjust language ##
-  my $lang = AttrVal("global","language","EN");
-  if($lang eq "DE") {
-    $EPG_tt = \%EPG_transtable_DE;
-  } else {
-    $EPG_tt = \%EPG_transtable_EN;
-  }
+	my $lang = uc(AttrVal("global","language","EN"));
+	$EPG_tt = $lang eq "DE" ? \%EPG_transtable_DE : \%EPG_transtable_EN;
 
-	Log3 $name, 4, "$name: FW_Detail is running (Tableview=$Table, language=$lang)";
-	Log3 $name, 5, "$name: FW_Detail - channel_available: ".scalar(@channel_available);
+	Log3 $name, 5, "$name: FW_Detail is running (Tableview=$Table, language=$lang)";
+	Log3 $name, 5, "$name: FW_Detail - Channels_available: ".scalar(@Channels_available);
 
 	if ($Ch_select) {
-		@Channels_value = split(",", $Ch_select);
-		$cnt_ch_select = scalar(@Channels_value);
+		@Channels_select = split(",", $Ch_select);
+		$cnt_ch_select = scalar(@Channels_select);
 		Log3 $name, 5, "$name: FW_Detail - channel_select: ".$cnt_ch_select;
 	}
 
-	if (scalar(@channel_available) > 0) {
+	if (scalar(@Channels_available) > 0) {
 		### Tablet_UI ###
 		$html_site.= '<!DOCTYPE html>';
 		$html_site.= '<html>';
@@ -570,11 +613,11 @@ sub EPG_FW_Detail($@) {
 		if ($FW_detail) {
 			### Control panel ###
 			$html_site .= "<div class='makeTable wide'><span>".$EPG_tt->{"control_pan"}."</span>
-							<table class='block wide' id='EPG_InfoMenue' nm='$hash->{NAME}'>
-							<tr class='even'>";
+										<table class='block wide' id='EPG_InfoMenue' nm='$hash->{NAME}'>
+										<tr class='even'>";
 
 			$html_site .= "<td><a href='#button1' id='button1'>".$EPG_tt->{"control_pan_btn"}."</a></td>";
-			$html_site .= "<td>".$EPG_tt->{"read_ch"}.": ". scalar(@channel_available) ."</td>";
+			$html_site .= "<td>".$EPG_tt->{"read_ch"}.": ". scalar(@Channels_available) ."</td>";
 			$html_site .= "<td>".$EPG_tt->{"select_ch"}.": ". $cnt_ch_select ."</td>";
 			$html_site .= "</tr></table></div>";
 		}
@@ -665,40 +708,10 @@ sub EPG_FW_Detail($@) {
 			return $html_site;
 		}
 
-		## Ch_Commands check and sort in ##
-		if ($Ch_Commands) {
-      if( $Ch_Commands =~ m/^\{.*\}$/s && $Ch_Commands =~ m/=>/ && $Ch_Commands !~ m/\$/ ) {
-        my $av = eval $Ch_Commands;
-        if( $@ ) {
-          Log3 $name, 3, "$name: FW_Detail - Ch_Command, ERROR: ". $@;
-        } else {
-          $Ch_Commands = $av if( ref($av) eq "HASH" );
-        }
-      }
-      $hash->{helper}{Ch_Commands} = $Ch_Commands;
+		$html_site .= "<div id=\"table\"><center>- ".$EPG_tt->{"epg_info"}." -</center></div>" if not ($Ch_select && $HTML_cnt != 0);
 
-			foreach my $d (keys %{$hash->{helper}{Ch_Commands}}) {
-				if (exists $HTML->{$d}) {
-					$HTML->{$d}{Ch_Command} = $hash->{helper}{Ch_Commands}{$d};
-					Log3 $name, 4, "$name: FW_Detail - Ch_Command for $d => " . $hash->{helper}{Ch_Commands}{$d};
-				}
-			}
-		}
-
-		foreach my $d (keys %{$HTML}) {
-			if ($HTML->{$d}{EPG}) {
-				$cnt_ch++;
-				Log3 $name, 5, "$name: FW_Detail - found information for channel ".$d;
-				$HTML_Fav++ if (exists $HTML->{$d}{title_wish});
-				#Log3 $name, 5, "$name: FW_Detail Dumper: ".Dumper\$HTML;
-			}
-		}
-
-		$html_site .= "<div id=\"table\"><center>- ".$EPG_tt->{"epg_info"}." -</center></div>" if not ($Ch_select && $cnt_ch != 0);
-		#Log3 $name, 3, "$name: FW_Detail Dumper: ".Dumper\$HTML;
-
-		if ($Ch_select && $cnt_ch != 0) {
-			my $cnt_infos = 0;
+		if ($Ch_select && $HTML_cnt != 0) {
+			my $EPG_cnt = 0;
 			my $date;
 			my $desc = "";
 			my $end = "";
@@ -711,8 +724,9 @@ sub EPG_FW_Detail($@) {
 
 			if ($FW_detail eq "" && $Variant && $Variant ne "teXXas_RSS") {
 				$html_site .= "<div id=\"btn_table\">";
-				$html_site .= "<INPUT type=\"reset\" onclick=\"pushed_button('now')\" value=\"".$EPG_tt->{"btn_now"}."\"/> <INPUT type=\"reset\" onclick=\"pushed_button('prime')\" value=\"".$EPG_tt->{"btn_prime"}."\"/>";
-				$html_site .= "<INPUT type=\"reset\" onclick=\"pushed_button('favorite')\" value=\"".$EPG_tt->{"btn_fav"}."\"/>" if (AttrVal($name, "FavoriteShows", undef));
+				$html_site .= "<INPUT type=\"reset\" onclick=\"pushed_button('now')\" value=\"".$EPG_tt->{"btn_now"}."\"/> <INPUT type=\"reset\" onclick=\"pushed_button('Prime')\" value=\"".$EPG_tt->{"btn_prime"}."\"/>";
+				$html_site .= "<INPUT type=\"reset\" onclick=\"pushed_button('FavDesc')\" value=\"".$EPG_tt->{"btn_FavDesc"}."\"/>" if (AttrVal($name, "FavDesc", undef));
+				$html_site .= "<INPUT type=\"reset\" onclick=\"pushed_button('FavTitle')\" value=\"".$EPG_tt->{"btn_FavTitle"}."\"/>" if (AttrVal($name, "FavTitle", undef));
 				$html_site .= "</div>";			
 
 				### check, old value to must reload ### 
@@ -734,7 +748,7 @@ sub EPG_FW_Detail($@) {
 					}
 
 					if ($reload != 0) {
-						$hash->{helper}{autoload} = "yes";
+						$hash->{helper}{HTML_reload} = "yes";
 						readingsSingleUpdate($hash, "state" , $EPG_tt->{"FW_autoload"}, 1);
 						CommandGet($hash, "$name loadEPG_now");
 						return "";
@@ -745,23 +759,17 @@ sub EPG_FW_Detail($@) {
 			$html_site .= "<div id=\"table\"><table id=\"FW_Detail\" class=\"block wide\">";
 
 			## HTML view normal ##
-			if ($HTML_Fav == 0) {
+			if ($hash->{helper}{last_cmd} !~ /^loadEPG_Fav/) {
 				## time now - normal
-				my ($sec,$min,$hour,$mday,$mon,$year,$wday,$ydat,$isdst) = localtime();
-
-				## time recalculation tomorrow - if now 11:30pm and view loadEPG_Prime
-				if ($hash->{helper}{last_cmd} eq "loadEPG_Prime" && $hour >= 20 && $min > 15) {
-					($sec,$min,$hour,$mday,$mon,$year,$wday,$ydat,$isdst) = localtime(time() + 14440);
-				}
-
-				$date = $EPG_tt->{"day".$wday}.", ".sprintf("%02s",$mday)." ".$EPG_tt->{"months".($mon + 1)}." ".($year + 1900);
+				my ($sec,$min,$hour,$mday,$mon,$year,$wday,$ydat,$isdst) = localtime(fhemTimeGm(0, 0, 0, substr($hash->{helper}{last_loaded},6,2) * 1, ( substr($hash->{helper}{last_loaded},4,2) * 1 - 1 ), ( substr($hash->{helper}{last_loaded},0,4) * 1 - 1900 ) ));
+				$date = $EPG_tt->{"day".$wday}.", ".sprintf("%02s",$mday)." ".$EPG_tt->{"months".($mon + 1)}." ".substr($hash->{helper}{last_loaded},0,4);
 				$html_site .= "<tr class=\"even\"><th>".$EPG_tt->{"channel"}."</th><th>".$EPG_tt->{"start"}."</th><th>".$EPG_tt->{"end"}."</th><th>".$EPG_tt->{"broadcast"}."<small> (".$date.")</small></th>".$Table_view_Subtitle."</tr>";
 			## HTML view for FavoriteShow ##
 			} else {
 				$html_site .= "<tr class=\"even\"><th>".$EPG_tt->{"channel"}."</th><th>".$EPG_tt->{"date"}."</th><th>".$EPG_tt->{"start"}."</th><th>".$EPG_tt->{"end"}."</th><th>".$EPG_tt->{"broadcast"}."</th>".$Table_view_Subtitle."</tr>";
 			}
 
-			my @positioned = sort { $HTML->{$a}{ch_wish} <=> $HTML->{$b}{ch_wish} or lc ($HTML->{$a}{ch_name}) cmp lc ($HTML->{$b}{ch_name}) } keys %$HTML;
+			my @positioned = sort { $HTML->{$a}{Ch_sort} <=> $HTML->{$b}{Ch_sort} or lc ($HTML->{$a}{Ch_name}) cmp lc ($HTML->{$b}{Ch_name}) } keys %$HTML;
 
 			foreach my $ch (@positioned) {
 				## Kanäle ##
@@ -787,21 +795,22 @@ sub EPG_FW_Detail($@) {
 						$desc = $value->{$d} if ($d eq "desc");
 						$subtitle = $value->{$d} if ($d eq "subtitle");
 					}
-					$cnt_infos++;
+					$EPG_cnt++;
 
 					## check HTML information old ? ##
 					if ( (($end_timstamp * 1 - time()) < 0) && $EPG_auto_update eq "no") {
 						Log3 $name, 4, "$name: FW_Detail - information channel $ch are old | Broadcast already ended $end_timstamp";
-						$html_site .= sprintf("<tr class=\"%s oldinfo\">", ($cnt_infos & 1)?"odd":"even");
+						$html_site .= sprintf("<tr class=\"%s oldinfo\">", ($EPG_cnt & 1)?"odd":"even");
 					} else {
-						$html_site .= sprintf("<tr class=\"%s\">", ($cnt_infos & 1)?"odd":"even");
+						$html_site .= sprintf("<tr class=\"%s\">", ($EPG_cnt & 1)?"odd":"even");
 					}
 					$Table_view_Subtitle = "<td>$subtitle</td>" if (AttrVal($name, "Table_view_Subtitle", "no") eq "yes");
 
 					## onclick Kanal wenn Kommando vorhanden ##
 					my $click_ch;
-					if (exists $HTML->{$ch}{Ch_Command}) {
-						$click_ch = "<a href=\"#!\" onclick=\"FW_cmd('/fhem?XHR=1&cmd=$HTML->{$ch}{Ch_Command}')\">$ch</a>";
+					if (exists $HTML->{$ch}{Ch_command}) {
+						Log3 $name, 5, "$name: FW_Detail - Ch_command, onclick for $ch -> ".$HTML->{$ch}{Ch_command};
+						$click_ch = "<a href=\"#!\" onclick=\"FW_cmd('/fhem?XHR=1&cmd=$HTML->{$ch}{Ch_command}')\">$ch</a>";
 					} else {
 						$click_ch = "$ch";
 					}
@@ -813,11 +822,11 @@ sub EPG_FW_Detail($@) {
 						$desc =~ s/[\r\'\"]/ /g;
 						$desc =~ s/[\n]|\\n/<br>/g;
 
-						$html_site .= "<td>$click_ch</td><td>$start</td><td>$end</td><td><a href=\"#!\" onclick=\"FW_okDialog(\'$desc\')\">$title</a></td>$Table_view_Subtitle</tr>" if ($HTML_Fav == 0);
-						$html_site .= "<td>$click_ch</td><td>".$date."</td><td>$start</td><td>$end</td><td><a href=\"#!\" onclick=\"FW_okDialog(\'$desc\')\">$title</a></td>$Table_view_Subtitle</tr>" if ($HTML_Fav != 0);
+						$html_site .= "<td>$click_ch</td><td>$start</td><td>$end</td><td><a href=\"#!\" onclick=\"FW_okDialog(\'$desc\')\">$title</a></td>$Table_view_Subtitle</tr>" if ($hash->{helper}{last_cmd} !~ /^loadEPG_Fav/);
+						$html_site .= "<td>$click_ch</td><td>".$date."</td><td>$start</td><td>$end</td><td><a href=\"#!\" onclick=\"FW_okDialog(\'$desc\')\">$title</a></td>$Table_view_Subtitle</tr>" if ($hash->{helper}{last_cmd} =~ /^loadEPG_Fav/);
 					} else {
-						$html_site .= "<td>$click_ch</td><td>$start</td><td>$end</td><td>$title</td>$Table_view_Subtitle</tr>" if ($HTML_Fav == 0);
-						$html_site .= "<td>$click_ch</td><td>".$date."</td><td>$start</td><td>$end</td><td>$title</td>$Table_view_Subtitle</tr>" if ($HTML_Fav != 0);
+						$html_site .= "<td>$click_ch</td><td>$start</td><td>$end</td><td>$title</td>$Table_view_Subtitle</tr>" if ($hash->{helper}{last_cmd} !~ /^loadEPG_Fav/);
+						$html_site .= "<td>$click_ch</td><td>".$date."</td><td>$start</td><td>$end</td><td>$title</td>$Table_view_Subtitle</tr>" if ($hash->{helper}{last_cmd} =~ /^loadEPG_Fav/);
 					}
 				}
 			}
@@ -837,38 +846,39 @@ sub EPG_FW_Detail($@) {
 ##################### (PopUp to view HTML for available channels)
 sub EPG_FW_Popup_Channels {
 	my $name = shift;
+	my $hash = $defs{$name};
 	my $html_site_ch = "";
 	my $Ch_select = AttrVal($name, "Ch_select", undef);
-	my $Ch_sort = AttrVal($name, "Ch_sort", undef);
-	my @Ch_sort = split(",",$Ch_sort) if (AttrVal($name, "Ch_sort", undef));
-	$Ch_sort = "";
-	my $checked = "";
+	my $Ch_sort = AttrVal($name, "Ch_sort", "");
+	my @Ch_sort = split(",",$Ch_sort) if ($Ch_sort ne "");
 	my $checked_cnt = -1;
+	my @Channels_available = @{$hash->{helper}{Channels_available}};
+	my $HTML = $hash->{helper}{HTML};
 
-	Log3 $name, 4, "$name: FW_Channels is running";
+	Log3 $name, 4, "$name: FW_Popup_Channels is running";
 
 	$html_site_ch.= "<div><table id=\"FW_Popup_Channels\" class=\"block wide\">";
 	$html_site_ch.= "<tr class=\"even\"><th>".$EPG_tt->{"no"}."</th><th>".$EPG_tt->{"active"}."</th><th>".$EPG_tt->{"tv_name"}."</th><th>".$EPG_tt->{"tv_fav"}."</th></tr>";
 
-	for (my $i=0; $i<scalar(@channel_available); $i++) {
-		if ($Ch_select && index($Ch_select,$channel_available[$i]) >= 0) {
+	for (my $i=0; $i<scalar(@Channels_available); $i++) {
+		my $checked = "";
+
+		if ($Ch_select && index($Ch_select,$Channels_available[$i]) >= 0) {
 			$checked_cnt++;
 			$checked = "checked";
-			if($HTML->{$channel_available[$i]}{ch_wish} && $HTML->{$channel_available[$i]}{ch_wish} < 999) {
-				$Ch_sort = $HTML->{$channel_available[$i]}{ch_wish};
+			if($HTML->{$Channels_available[$i]}{Ch_sort} && $HTML->{$Channels_available[$i]}{Ch_sort} < EPG_Temp_ChSortNumbre) {
+				$Ch_sort = $HTML->{$Channels_available[$i]}{Ch_sort};
 			} else {
 				$Ch_sort = $Ch_sort[$checked_cnt] if ($Ch_sort[$checked_cnt] && $Ch_sort[$checked_cnt] ne 0);
 			}
 		}
 
 		$html_site_ch.= sprintf("<tr class=\"%s\">", ($i & 1)?"even":"odd");
-		$html_site_ch.= "<td align=\"center\">".($i + 1)."</td><td align=\"center\"><input type=\"checkbox\" id=\"".$i."\" name=\"".$channel_available[$i]."\" onclick=\"Checkbox(".$i.")\" $checked></td><td>". $channel_available[$i] ."</td><td> <input type=\"text\" pattern=\"[0-9]+\" id=\"".$i."\" value=\"$Ch_sort\" maxlength=\"3\" size=\"3\"> </td></tr>";
-		$checked = "";
+		$html_site_ch.= "<td align=\"center\">".($i + 1)."</td><td align=\"center\"><input type=\"checkbox\" id=\"".$i."\" name=\"".$Channels_available[$i]."\" onclick=\"Checkbox(".$i.")\" $checked></td><td>". $Channels_available[$i] ."</td><td> <input type=\"text\" pattern=\"[0-9]+\" id=\"".$i."\" value=\"$Ch_sort\" maxlength=\"3\" size=\"3\"> </td></tr>";
 		$Ch_sort = "";
 	}
 
 	$html_site_ch.= "</table></div>";
-
 	return $html_site_ch;
 }
 
@@ -876,10 +886,12 @@ sub EPG_FW_Popup_Channels {
 sub EPG_FW_set_Attr_Channels {
 	my $name = shift;
 	my $hash = $defs{$name};
+	my $room = AttrVal($name, "room", "");
 	my $Ch_select = shift;
 	my @Ch_select_array = split(",",$Ch_select);
 	my $Ch_sort = shift;
 	my @Ch_sort_array = split(",",$Ch_sort);
+	my $HTML = $hash->{helper}{HTML};
 
 	Log3 $name, 4, "$name: FW_set_Attr_Channels is running";
 	Log3 $name, 5, "$name: FW_set_Attr_Channels Ch_select $Ch_select";
@@ -889,34 +901,34 @@ sub EPG_FW_set_Attr_Channels {
 		Log3 $name, 4, "$name: FW_set_Attr_Channels all Channels delete and clean view";
 		CommandDeleteAttr($hash,"$name Ch_select");
 		CommandDeleteAttr($hash,"$name Ch_sort");
-		InternalTimer(gettimeofday()+2, "EPG_readingsSingleUpdate_later", "$name,".$EPG_tt->{"set_Attr_Ch_eq"});
-		$HTML = {};
+		InternalTimer(gettimeofday()+EPG_InternalTimer_DELAY, "EPG_readingsSingleUpdate_later", "$name,".$EPG_tt->{"set_Attr_Ch_eq"});
+		delete $hash->{helper}{HTML} if(defined($hash->{helper}{HTML}));
 
-		FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "location.reload('true')", "");
+		FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:$FW_wname", "location.reload('true')", "");
 	} else {
-		Log3 $name, 4, "$name: FW_set_Attr_Channels new Channels set";
-		$HTML = {};
+		Log3 $name, 4, "$name: FW_set_Attr_Channels set Ch_select to $Ch_select";
+		delete $hash->{helper}{HTML} if(defined($hash->{helper}{HTML}));
 		CommandAttr($hash,"$name Ch_select $Ch_select");
+
 		if ($Ch_sort !~ /^[0,]+$/) {
 			CommandAttr($hash,"$name Ch_sort $Ch_sort");
 		} else {
 			CommandDeleteAttr($hash,"$name Ch_sort");		
 		}
 
-    ## list of all available channels - set ch_wish from HTML input ##
+    ## list of all available channels - set Ch_sort from HTML input ##
 		foreach my $i (0 .. $#Ch_select_array) {
 			if ($Ch_sort_array[$i] != 0) {
 				Log3 $name, 4, "$name: FW_set_Attr_Channels new numbre of ".$Ch_select_array[$i]." set to ".$Ch_sort_array[$i];
-				$HTML->{$Ch_select_array[$i]}{ch_wish} = $Ch_sort_array[$i];
-				$HTML->{$Ch_select_array[$i]}{ch_name} = $Ch_select_array[$i];         # need, if channel not PEG Data (sort $HTML)
+				$HTML->{$Ch_select_array[$i]}{Ch_sort} = $Ch_sort_array[$i];
+				$HTML->{$Ch_select_array[$i]}{Ch_name} = $Ch_select_array[$i];         # need, if channel not PEG Data (sort $HTML)
 			} else {
-				$HTML->{$Ch_select_array[$i]}{ch_wish} = 999;                          # Reset Default
-				$HTML->{$Ch_select_array[$i]}{ch_name} = $Ch_select_array[$i];         # need, if channel not PEG Data (sort $HTML)
+				$HTML->{$Ch_select_array[$i]}{Ch_sort} = EPG_Temp_ChSortNumbre;        # Reset Default
+				$HTML->{$Ch_select_array[$i]}{Ch_name} = $Ch_select_array[$i];         # need, if channel not PEG Data (sort $HTML)
 			}
 		}
-		readingsSingleUpdate($hash, "state" , $EPG_tt->{"set_Attr_Ch_state"}, 1);
+		CommandGet($hash, "$name $hash->{helper}{last_cmd}") if ($hash->{helper}{last_cmd});
 	}
-	#Log3 $name, 5, "$name: FW_set_Attr_Channels ".Dumper\$HTML;
 }
 
 ##################### (SAVE Button on PopUp -> Anpassung Attribute Channels)
@@ -927,9 +939,9 @@ sub EPG_FW_pushed_button {
 
 	Log3 $name, 4, "$name: FW_pushed_button is running";
 
-	CommandGet($hash, "$name loadEPG_now") if ($command eq "now");
-	CommandGet($hash, "$name loadEPG_Prime") if ($command eq "prime");
-	CommandGet($hash, "$name loadEPG_Fav") if ($command eq "favorite");
+	foreach my $value (qw(now Prime FavDesc FavTitle)) {
+		CommandGet($hash, "$name loadEPG_".$value) if ($command eq $value);
+	}
 }
 
 #####################
@@ -960,6 +972,8 @@ sub EPG_ParseHttpResponse($$$) {
 	my $HTTP_TimeOut = AttrVal($name, "HTTP_TimeOut", 10);
 	my $state = $EPG_tt->{"ParseHttp_state1"};
 	my $FileAge = undef;
+	my $EPG_auto_download = AttrVal($name, "EPG_auto_download", "no");
+	my $FW_wname = !$FW_wname ? "WEB" : $FW_wname;
 
 	Log3 $name, 5, "$name: ParseHttpResponse - error: $err";
 	Log3 $name, 5, "$name: ParseHttpResponse - http code: ".$http_param->{code};
@@ -999,7 +1013,7 @@ sub EPG_ParseHttpResponse($$$) {
 		}
 
 		EPG_File_check($hash) if ($osname ne "MSWin32");
-		FW_directNotify("FILTER=$name", "#FHEMWEB:WEB", "location.reload('true')", "");
+		FW_directNotify("FILTER=$name", "#FHEMWEB:$FW_wname", "location.reload('true')", "");
 		$state = 	$EPG_tt->{"ParseHttp_state_ok"};
 		$HttpResponse = $EPG_tt->{"ParseHttp_Http_ok"};
 	}
@@ -1010,6 +1024,9 @@ sub EPG_ParseHttpResponse($$$) {
 	readingsEndUpdate($hash, 1);
 
 	HttpUtils_Close($http_param);
+
+	# loadEPG_now if cmd automatic_loadFile after "found 0 broadcast information, process automatic download started"
+	CommandGet($hash, "$name loadEPG_now") if ($EPG_auto_download eq "yes" && $hash->{helper}{last_cmd} && $hash->{helper}{last_cmd} eq "automatic_loadFile");
 }
 
 #####################
@@ -1090,11 +1107,9 @@ sub EPG_Notify($$) {
 	my ($hash, $dev_hash) = @_;
 	my $name = $hash->{NAME};
 	my $typ = $hash->{TYPE};
-	return "" if(IsDisabled($name));	                                        # Return without any further action if the module is disabled
-	my $devName = $dev_hash->{NAME};	                                        # Device that created the events
+	return "" if(IsDisabled($name));	               # Return without any further action if the module is disabled
+	my $devName = $dev_hash->{NAME};	               # Device that created the events
 	my $events = deviceEvents($dev_hash, 1);
-	my $DownloadFile = AttrVal($name, "DownloadFile", undef);
-	my $Variant = AttrVal($name, "Variant", undef);
 
 	if($devName eq "global" && grep(m/^INITIALIZED|REREADCFG$/, @{$events}) && $typ eq "EPG") {
 		Log3 $name, 5, "$name: Notify is running and starting";
@@ -1111,12 +1126,9 @@ sub EPG_Undef($$) {
 	RemoveInternalTimer($hash);
 	BlockingKill($hash->{helper}{RUNNING_PID}) if(defined($hash->{helper}{RUNNING_PID}));
 
-	delete $hash->{helper}{FTUI_data} if(defined($hash->{helper}{FTUI_data}));
-	delete $hash->{helper}{HTML} if(defined($hash->{helper}{HTML}));
-	delete $hash->{helper}{autoload} if(defined($hash->{helper}{autoload}));
-	delete $hash->{helper}{last_cmd} if(defined($hash->{helper}{last_cmd}));
-	delete $hash->{helper}{programm} if(defined($hash->{helper}{programm}));
-
+	foreach my $value (qw(Channels_available Ch_commands EPG_file_last_timestamp FTUI_data HTML HTML_data_counter HTML_reload automatic_cnt last_cmd last_loaded programm)) {
+		delete $hash->{helper}{$value} if(defined($hash->{helper}{$value}));
+	}
 	return undef;
 }
 
@@ -1173,23 +1185,24 @@ sub EPG_nonBlock_available_channels($) {
   my $hash = $defs{$name};
   my $return;
 	my $Variant = "unknown";
-	my $ch_id;
+	my $Ch_id;
 	my $ok = "ok";
 	my $additive_info = "";
+	my @Channels_available;
 
-  Log3 $name, 4, "$name: nonBlocking_available_channels running";
-  Log3 $name, 5, "$name: nonBlocking_available_channels string=$string";
+  Log3 $name, 4, "$name: nonBlock_available_channels running";
+  Log3 $name, 5, "$name: nonBlock_available_channels string=$string";
 
 	if (-e "./FHEM/EPG/$EPG_file_name") {
 		open (FileCheck,"<./FHEM/EPG/$EPG_file_name");
 			my $line_cnt = 0;
 			while (<FileCheck>) {
-				my $ch_name;
+				my $Ch_name;
 				$line_cnt++;
 				if ($line_cnt > 0 && $line_cnt <= 3) {
 					my $line = $_;
 					chomp ($line);
-					Log3 $name, 5, "$name: nonBlocking_available_channels line: ".$line;
+					Log3 $name, 5, "$name: nonBlock_available_channels line: ".$line;
 				}
 				# <tv generator-info-name="Rytec" generator-info-url="http://forums.openpli.org">
 				$Variant = "Rytec" if ($_ =~ /.*generator-info-name="Rytec".*/);
@@ -1203,54 +1216,49 @@ sub EPG_nonBlock_available_channels($) {
 				$Variant = "teXXas_RSS" if ($_ =~ /.*<channel><title>teXXas -.*<link>http:\/\/www.texxas.de\/tv\/programm.*/);
 
 				if ($Variant eq "Rytec" || $Variant eq "TvProfil_XMLTV" || $Variant eq "WebGrab+Plus" || $Variant eq "XMLTV.se") {
-					$ch_id = $1 if ($_ =~ /<channel id="(.*)">/);        # other
-					$ch_id = $1 if ($_ =~ /\schannel="(.*)"\s?start=/);  # XMLTV.se
+					$Ch_id = $1 if ($_ =~ /<channel id="(.*)">/);        # other
+					$Ch_id = $1 if ($_ =~ /\schannel="(.*)"\s?start=/);  # XMLTV.se
 
 					if ($_ =~ /<display-name lang=".*">(.*)<.*/) {
-						Log3 $name, 5, "$name: nonBlocking_available_channels id: $ch_id -> display_name: ".$1;
-						$ch_name = $1;
+						Log3 $name, 5, "$name: nonBlock_available_channels id: $Ch_id -> display_name: ".$1;
+						$Ch_name = $1;
 					}
 
-					$ch_name = $ch_id if ($Variant eq "XMLTV.se");
-					Log3 $name, 4, "$name: nonBlocking_available_channels with variant=$Variant and without ch_id. need help!" if (!$ch_name && $line_cnt == 4);
-					Log3 $name, 4, "$name: nonBlocking_available_channels with variant=$Variant" if ($ch_name && $line_cnt == 4);
+					$Ch_name = $Ch_id if ($Variant eq "XMLTV.se");
+					Log3 $name, 4, "$name: nonBlock_available_channels with variant=$Variant and without ch_id. need help!" if (!$Ch_name && $line_cnt == 4);
+					Log3 $name, 4, "$name: nonBlock_available_channels with variant=$Variant" if ($Ch_name && $line_cnt == 4);
 
-					## nonBlocking_available_channels set helper ##
-					if ($ch_name && (not grep /^$ch_name$/, @channel_available)) {
-						Log3 $name, 5, "$name: nonBlocking_available_channels added $ch_name with ch_id $ch_id";
-						$hash->{helper}{programm}{$ch_id}{name} = $ch_name;
-						push(@channel_available,$ch_name);					
+					## nonBlock_available_channels set helper ##
+					if ($Ch_name && (not grep /^$Ch_name$/, @Channels_available)) {
+						Log3 $name, 5, "$name: nonBlock_available_channels added $Ch_name with ch_id $Ch_id";
+						$hash->{helper}{Programm}{$Ch_id} = $Ch_name;
+						push(@Channels_available,$Ch_name);					
 					}
 				} elsif ($Variant eq "teXXas_RSS") {
-					$hash->{helper}{programm} = "now" if ($_ =~ /<link>http:\/\/www.texxas.de\/tv\/programm\/jetzt\//);
-					$hash->{helper}{programm} = "20:15" if ($_ =~ /<link>http:\/\/www.texxas.de\/tv\/programm\/heute\/2015\//);
-					## nonBlocking_available_channels set helper ##
+					$hash->{helper}{Programm} = "now" if ($_ =~ /<link>http:\/\/www.texxas.de\/tv\/programm\/jetzt\//);
+					$hash->{helper}{Programm} = "20:15" if ($_ =~ /<link>http:\/\/www.texxas.de\/tv\/programm\/heute\/2015\//);
+					## nonBlock_available_channels set helper ##
 					my @RRS = split("<item>", $_);
 					my $remove = shift @RRS;
 					for (@RRS) {
-						push(@channel_available,$1) if ($_ =~ /<dc:subject>(.*)<\/dc:subject>/);
+						push(@Channels_available,$1) if ($_ =~ /<dc:subject>(.*)<\/dc:subject>/);
 					}
 				}
 			}
 		close FileCheck;
 
 		if ($Variant eq "Rytec" || $Variant eq "TvProfil_XMLTV" || $Variant eq "WebGrab+Plus" || $Variant eq "XMLTV.se") {
-			$additive_info = JSON->new->utf8(0)->encode($hash->{helper}{programm});
-			Log3 $name, 4, "$name: nonBlocking_available_channels read additive_info with variant $Variant";
+			$additive_info = JSON->new->utf8(0)->encode($hash->{helper}{Programm});
+			Log3 $name, 4, "$name: nonBlock_available_channels read additive_info with variant $Variant";
 		} elsif ($Variant eq "teXXas_RSS") {
-			$additive_info = $hash->{helper}{programm};	
+			$additive_info = $hash->{helper}{Programm};	
 		}
 	} else {
 		$ok = $EPG_tt->{"available_ch_ok"};
-		Log3 $name, 4, "$name: nonBlocking_available_channels file $EPG_file_name not found, need help!";
+		Log3 $name, 4, "$name: nonBlock_available_channels file $EPG_file_name not found, need help!";
 	}
 
-	### for TEST ###
-	# foreach my $ch (sort keys %{$hash->{helper}{programm}}) {
-		# Log3 $name, 3, $hash->{helper}{programm}{$ch}{name};
-	# }
-
-	my $ch_available = join(";", @channel_available);
+	my $ch_available = join(";", @Channels_available);
 	$return = $name."|".$EPG_file_name."|".$ok."|".$Variant."|".$ch_available."|".$additive_info;
 
 	return $return;
@@ -1265,7 +1273,8 @@ sub EPG_nonBlock_available_channelsDone($) {
 	my $Ch_select = AttrVal($name, "Ch_select", undef);
 	my $EPG_auto_update = AttrVal($name, "EPG_auto_update", "no");
 	my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
-	
+	my $FW_wname = !$FW_wname ? "WEB" : $FW_wname;
+
 	return unless(defined($string));
   Log3 $name, 4, "$name: nonBlock_available_channelsDone running";
   Log3 $name, 5, "$name: nonBlock_available_channelsDone string=$string";
@@ -1281,13 +1290,13 @@ sub EPG_nonBlock_available_channelsDone($) {
 		return "";
 	}
 
-  @channel_available = split(';', $ch_available);
-	@channel_available = sort @channel_available;
+  my @Channels_available = split(';', $ch_available);
+	@Channels_available = sort @Channels_available;
 
 	## check channels in attr Ch_select available in file (new available channels) ##
 	if ($Ch_select) {
 		for(my $i=0;$i<=$#Ch_select_array;$i++) {
-			if (not grep /^$Ch_select_array[$i]$/, @channel_available) {
+			if (not grep /^$Ch_select_array[$i]$/, @Channels_available) {
 				my %mod = map { ($_ => 1) }
 							grep { $_ !~ m/^$Ch_select_array[$i](:.+)?$/ }
 							split(",", $Ch_select);
@@ -1303,25 +1312,27 @@ sub EPG_nonBlock_available_channelsDone($) {
 		$ch_table = decode_json($additive_info);
 
 		foreach my $ch (sort keys %{$ch_table}) {
-			Log3 $name, 5, "$name: nonBlock_available_channelsDone channel ".$ch . " -> " . $ch_table->{$ch}->{name};
+			Log3 $name, 5, "$name: nonBlock_available_channelsDone channel ".$ch . " -> " . $ch_table->{$ch};
 		}	
 	}
 
 	$ch_table = $additive_info if ($Variant eq "teXXas_RSS");
 
-	$hash->{helper}{programm} = $ch_table;
+	$hash->{helper}{Programm} = $ch_table;
 	CommandAttr($hash,"$name Variant $Variant") if ($Variant ne "unknown");
-	FW_directNotify("FILTER=$name", "#FHEMWEB:WEB", "location.reload('true')", "");		            # reload Webseite
+	FW_directNotify("FILTER=$name", "#FHEMWEB:$FW_wname", "location.reload('true')", "");		            # reload Webseite
 
 	if (AttrVal($name, "Ch_select", undef)) {
 		if ($EPG_auto_update ne "yes") {
-			InternalTimer(gettimeofday()+2, "EPG_readingsSingleUpdate_later", "$name,".$EPG_tt->{"chDone_msg_OK"});		
+			InternalTimer(gettimeofday()+EPG_InternalTimer_DELAY, "EPG_readingsSingleUpdate_later", "$name,".$EPG_tt->{"chDone_msg_OK"});		
 		} else {
 			CommandGet($hash, "$name loadEPG_now") if ($Variant ne "teXXas_RSS");
 		}
 	} else {
-		InternalTimer(gettimeofday()+2, "EPG_readingsSingleUpdate_later", "$name,".$EPG_tt->{"chDone_msg_OK2"});
+		InternalTimer(gettimeofday()+EPG_InternalTimer_DELAY, "EPG_readingsSingleUpdate_later", "$name,".$EPG_tt->{"chDone_msg_OK2"});
 	}
+
+	$hash->{helper}{Channels_available} = \@Channels_available;
 }
 
 #####################
@@ -1330,8 +1341,14 @@ sub EPG_nonBlock_loadEPG_v1($) {
 	my ($name, $EPG_file_name, $cmd, $cmd2) = split("\\|", $string);
 	my $Ch_select = AttrVal($name, "Ch_select", undef);
 	my $Ch_sort = AttrVal($name, "Ch_sort", undef);
-	my $FavoriteShows = AttrVal($name, "FavoriteShows", undef) if ($cmd eq "loadEPG_Fav");
-	my @FavoriteShows_array = split(";",$FavoriteShows) if ($FavoriteShows);
+
+	my $FavDesc = AttrVal($name, "FavDesc", undef) if ($cmd eq "loadEPG_FavDesc");
+	my @FavDesc_array = split(";",$FavDesc) if ($FavDesc);
+	my $FavDesc_found = 0;
+	my $FavTitle = AttrVal($name, "FavTitle", undef) if ($cmd eq "loadEPG_FavTitle");
+	my @FavTitle_array = split(";",$FavTitle) if ($FavTitle);
+	my $FavTitle_found = 0;
+
   my $hash = $defs{$name};
   my $return;
 
@@ -1343,23 +1360,25 @@ sub EPG_nonBlock_loadEPG_v1($) {
 	my @local = (localtime(time+$off_h*60*60));
 	my $TimeLocaL_GMT_Diff = $gmt[2]-$local[2] + ($gmt[5] <=> $local[5] || $gmt[7] <=> $local[7])*24;
 
-	my $EPG_info = "";
-	my $ch_found = 0;          # counter to verification ch
-	my $ch_id = "";            # TV channel channel id
-	my $ch_name = "";          # TV channel display-name
-	my $ch_name_before = "";   # TV channel display-name before
-	my $data_found = -1;       # counter to verification data
+	my $EPG_info = "";         # info for user via EPG_readingsSingleUpdate_later
+	my $EPG_cnt = 0;           # counter for founded data
+	my $array_cnt = -1;        # counter to verification data
+	my $EPG_found = 0;          # counter to verification ch
+	my $Ch_id = "";            # TV channel channel id
+	my $Ch_name = "";          # TV channel display-name
+	my $Ch_name_before = "";   # TV channel display-name before
 	my $desc = "";             # TV desc text
-	my $descstart = 0;         # TV desc - start
 	my $descend = 0;           # TV desc - ened
+	my $descstart = 0;         # TV desc - start
 	my $end = "";              # TV time end
 	my $hour_diff_read = "";   # hour diff from file
+	my $last_loaded = "";      # for Reading EPG_last_loaded
 	my $start = "";            # TV time start
 	my $subtitle = "";         # TV subtitle
 	my $title = "";            # TV title
-	my $title_wish;            # TV marker for loadEPG_Fav
 	my $today_end = "";        # today time end
 	my $today_start = "";      # today time start
+	my $EPG_file_last_timestamp = "";  # last timestamp on file
 
 	my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
 	my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
@@ -1379,39 +1398,41 @@ sub EPG_nonBlock_loadEPG_v1($) {
 	$TimeNow =~ s/-|:|\s//g;
 	$TimeNow.= " $TimeLocaL_GMT_Diff";                       # loadEPG_now   20191016150432 +0200
 
+	if ($cmd =~ /loadEPG_now/) {
+		$last_loaded = substr($TimeNow,0,8)."_".substr($TimeNow,8,4);
+	}
+	
 	if ($cmd =~ /loadEPG_Prime/) {
-		if (substr($TimeNow,8, 2) > 20) {                      # loadEPG_Prime 20191016201510 +0200	morgen wenn Prime derzeit läuft
-			my @time = split(/-|\s|:/,FmtDateTime(time()));
-			$TimeNow = FmtDateTime(time() - ($time[5] + $time[4] * 60 + $time[3] * 3600) + 86400);
-			$TimeNow =~ s/-|:|\s//g;
-			$TimeNow.= " +0200";
-			substr($TimeNow, 8) = "201510 $TimeLocaL_GMT_Diff";
-		} else {                                               # loadEPG_Prime 20191016201510 +0200	heute
-			substr($TimeNow, 8) = "201510 $TimeLocaL_GMT_Diff";
-		}
+		substr($TimeNow, 8) = "201510 $TimeLocaL_GMT_Diff";    # loadEPG_Prime 20191016201510 +0200	heute
+		$last_loaded = substr($TimeNow,0,8)."_2015";
 	}
 	
 	if ($cmd =~ /loadEPG_today/) {                           # Beginn und Ende von heute bestimmen
 		$today_start = substr($TimeNow,0,8)."000000 $TimeLocaL_GMT_Diff";
 		$today_end = substr($TimeNow,0,8)."235959 $TimeLocaL_GMT_Diff";
+		$last_loaded = substr($today_start,0,8)."_";
 	}
 
 	if ($cmd =~ /loadEPG/ && $cmd2 =~ /^[0-9]*_[0-9]*$/) {   # loadEPG 20191016_200010 +0200 stündlich ab jetzt
-		$cmd2 =~ s/_//g;
-		$cmd2.= "10 $TimeLocaL_GMT_Diff";
 		$TimeNow = $cmd2;
+		$TimeNow =~ s/_//g;
+		$TimeNow.= "10 $TimeLocaL_GMT_Diff";
+		$last_loaded = substr($TimeNow,0,8)."_".substr($TimeNow,8,4);
 	}
-	
+
+	if ($cmd =~ /^loadEPG_Fav/) {
+		$last_loaded = "_";
+	}
+
 	Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | TimeNow          -> $TimeNow";
-	#Log3 $name, 3, "$name: nonBlock_loadEPG_v1 ".Dumper\$hash->{helper}{programm};
 
 	if (-e "./FHEM/EPG/$EPG_file_name") {
 		open (FileCheck,"<./FHEM/EPG/$EPG_file_name");
 			while (<FileCheck>) {
 				if ($_ =~ /<programme start="(.*\s+(.*))" stop="(.*)" channel="(.*)"/) {      # find start | end | channel
-					my $search = $hash->{helper}{programm}{$4}->{name};
+					my $search = $hash->{helper}{Programm}{$4};
 					#Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | data for channel    -> $search";
-					($start, $hour_diff_read, $end, $ch_id, $ch_name) = ($1, $2, $3, $4, $search);
+					($start, $hour_diff_read, $end, $Ch_id, $Ch_name) = ($1, $2, $3, $4, $search);
 
 					if ($TimeLocaL_GMT_Diff ne $hour_diff_read) {
 						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | Time must be recalculated! local=$TimeLocaL_GMT_Diff read=$2";
@@ -1420,13 +1441,13 @@ sub EPG_nonBlock_loadEPG_v1($) {
 
 						my @start_new = split("",$start);
 						my @end_new = split("",$end);
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | ".'sec | min | hour | mday | month | year';
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | $start_new[12]$start_new[13]  | $start_new[10]$start_new[11]  |  $start_new[8]$start_new[9]  | $start_new[6]$start_new[7]   | $start_new[4]$start_new[5]    | $start_new[0]$start_new[1]$start_new[2]$start_new[3]";
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | $end_new[12]$end_new[13]  | $end_new[10]$end_new[11]  |  $end_new[8]$end_new[9]  | $end_new[6]$end_new[7]   | $end_new[4]$end_new[5]    | $end_new[0]$end_new[1]$end_new[2]$end_new[3]";
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | UTC start        -> ".fhemTimeLocal(($start_new[12].$start_new[13]), ($start_new[10].$start_new[11]), ($start_new[8].$start_new[9]), ($start_new[6].$start_new[7]), (($start_new[4].$start_new[5])*1-1), (($start_new[0].$start_new[1].$start_new[2].$start_new[3])*1-1900));
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | UTC end          -> ".fhemTimeLocal(($end_new[12].$end_new[13]), ($end_new[10].$end_new[11]), ($end_new[8].$end_new[9]), ($end_new[6].$end_new[7]), (($end_new[4].$end_new[5])*1-1), (($end_new[0].$end_new[1].$end_new[2].$end_new[3])*1-1900));
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | start            -> $start";             # 20191023211500 +0000
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | end              -> $end";               # 20191023223000 +0000
+						# Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | ".'sec | min | hour | mday | month | year';
+						# Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | $start_new[12]$start_new[13]  | $start_new[10]$start_new[11]  |  $start_new[8]$start_new[9]  | $start_new[6]$start_new[7]   | $start_new[4]$start_new[5]    | $start_new[0]$start_new[1]$start_new[2]$start_new[3]";
+						# Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | $end_new[12]$end_new[13]  | $end_new[10]$end_new[11]  |  $end_new[8]$end_new[9]  | $end_new[6]$end_new[7]   | $end_new[4]$end_new[5]    | $end_new[0]$end_new[1]$end_new[2]$end_new[3]";
+						# Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | UTC start        -> ".fhemTimeLocal(($start_new[12].$start_new[13]), ($start_new[10].$start_new[11]), ($start_new[8].$start_new[9]), ($start_new[6].$start_new[7]), (($start_new[4].$start_new[5])*1-1), (($start_new[0].$start_new[1].$start_new[2].$start_new[3])*1-1900));
+						# Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | UTC end          -> ".fhemTimeLocal(($end_new[12].$end_new[13]), ($end_new[10].$end_new[11]), ($end_new[8].$end_new[9]), ($end_new[6].$end_new[7]), (($end_new[4].$end_new[5])*1-1), (($end_new[0].$end_new[1].$end_new[2].$end_new[3])*1-1900));
+						# Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | start            -> $start";             # 20191023211500 +0000
+						# Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | end              -> $end";               # 20191023223000 +0000
 
 						if (index($hour_diff,"-")) {
 							$start = fhemTimeLocal(($start_new[12].$start_new[13]), ($start_new[10].$start_new[11]), ($start_new[8].$start_new[9]), ($start_new[6].$start_new[7]), (($start_new[4].$start_new[5])*1-1), (($start_new[0].$start_new[1].$start_new[2].$start_new[3])*1-1900)) + (60*60*abs(substr($TimeLocaL_GMT_Diff,2,1)));
@@ -1436,9 +1457,6 @@ sub EPG_nonBlock_loadEPG_v1($) {
 							$end = fhemTimeLocal(($end_new[12].$end_new[13]), ($end_new[10].$end_new[11]), ($end_new[8].$end_new[9]), ($end_new[6].$end_new[7]), (($end_new[4].$end_new[5])*1-1), (($end_new[0].$end_new[1].$start_new[2].$start_new[3])*1-1900)) - (60*60*abs(substr($TimeLocaL_GMT_Diff,2,1)));
 						}
 
-						#Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | UTC start new    -> $start";
-						#Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | UTC end new      -> $end";
-
 						$start = FmtDateTime($start);
 						$end = FmtDateTime($end);
 						$start =~ s/-|:|\s//g;
@@ -1446,13 +1464,16 @@ sub EPG_nonBlock_loadEPG_v1($) {
 						$start.= " $TimeLocaL_GMT_Diff";
 						$end.= " $TimeLocaL_GMT_Diff";
 
-						#Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | start new        -> $start";
-						#Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | end new          -> $end";
+						# Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | start new        -> $start";
+						# Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | end new          -> $end";
 					}
+
+					## save last timestamp from EPG_file ##
+					$EPG_file_last_timestamp = $end ne "" && $EPG_file_last_timestamp lt $end ? $end : $EPG_file_last_timestamp;
 
 					if ($cmd !~ /loadEPG_Fav/ && grep /$search($|,)/, $Ch_select) {             # find in attributes channel
 						if ($cmd !~ /loadEPG_today/) {
-							$ch_found++ if ($TimeNow gt $start && $TimeNow lt $end);                # Zeitpunktsuche, normal
+							$EPG_found++ if ($TimeNow gt $start && $TimeNow lt $end);               # Zeitpunktsuche, normal
 						} else {
               # Zeitpunktsuche, kompletter Tag
 							if (($start eq $today_start || $start gt $today_start) && ($end eq $today_end || $end lt $today_end) || ($start lt $today_end && ($end gt $today_end || $end eq $today_end))) {
@@ -1460,64 +1481,90 @@ sub EPG_nonBlock_loadEPG_v1($) {
 								# Log3 $name, 3, "$name: nonBlock_loadEPG_v1 | today_start      -> $today_start";
 								# Log3 $name, 3, "$name: nonBlock_loadEPG_v1 | end              -> $end";
 								# Log3 $name, 3, "$name: nonBlock_loadEPG_v1 | today_end        -> $today_end";
-								$ch_found++;
+								$EPG_found++;
 							}
 						}
 					}
 				}
 
-				if ($_ =~ /<title lang="(.*)">(.*)<\/title>/) {
-					$title = $2 if ($ch_found != 0);                 # title
+				### title subtitle desc if EPG_found ###
+				if ($cmd !~ /loadEPG_Fav/ && $EPG_found != 0) {
+					$title = $2 if ($_ =~ /<title lang="(.*)">(.*)<\/title>/);                # title
+					$subtitle = $2 if ($_ =~ /<sub-title lang="(.*)">(.*)<\/sub-title>/);     # subtitle
+					
+					if ($_ =~ /<desc lang="(.*)">(.*)<\/desc>/ && $descstart == 0) {          # desc - one line
+						$desc = $2;
+						$descstart = 1;
+						$descend = 1;
+					}
 
-					## looking for favorite´s ##
-					if (scalar(@FavoriteShows_array) > 0 && ($start gt $TimeNow)) {
-						for (my $i=0;$i<@FavoriteShows_array;$i++) {
-							if (grep /\Q$FavoriteShows_array[$i]\E/, $2) {
-								Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | FavoriteShow, $FavoriteShows_array[$i] found";
-								Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | FavoriteShow, $2";
-								$title = $2;                                   # title
-								$title_wish = "yes";
-								$ch_found++;
-							}
-						}
+				### title subtitle desc if always ###
+				} else {
+					$title = $2 if ($_ =~ /<title lang="(.*)">(.*)<\/title>/);                # title
+					$subtitle = $2 if ($_ =~ /<sub-title lang="(.*)">(.*)<\/sub-title>/);     # subtitle
+
+					if ($_ =~ /<desc lang="(.*)">(.*)<\/desc>/ && $descstart == 0) {          # desc - one line
+						$desc = $2;
+						$descstart = 1;
+						$descend = 1;
 					}
 				}
 
-				$subtitle = $2 if ($_ =~ /<sub-title lang="(.*)">(.*)<\/sub-title>/ && $ch_found != 0); # subtitle
-
-				if ($_ =~ /<desc lang="(.*)">(.*)<\/desc>/ && $descstart == 0 && $ch_found != 0) {      # desc - one line
-					$desc = $2;
-					$descstart = 1;
-					$descend = 1;
-				}
-
-				if ($_ =~ /<desc lang="(.*)">(.*)/ && $descstart == 0 && $descend == 0 && $ch_found != 0) { # desc - multiline line
+				if ($_ =~ /<desc lang="(.*)">(.*)/ && $descstart == 0 && $descend == 0) {          # desc - multiline line
 					$desc = $2;
 					$descstart = 1;
 				}
 
-				if ($descstart == 1 && $descend == 0 && $_ !~ /<desc lang/ && $_ !~ /<\/desc>/) {           # desc - multiline line
+				if ($descstart == 1 && $descend == 0 && $_ !~ /<desc lang/ && $_ !~ /<\/desc>/) {  # desc - multiline line
 					chomp ($_);
 					$desc.= " ".$_;
 				}
 
-				if ($descstart == 1 && $descend == 0 && $_ =~ /(.*)<\/desc>/) {                             # desc - multiline line end
+				if ($descstart == 1 && $descend == 0 && $_ =~ /(.*)<\/desc>/) {                     # desc - multiline line end
 					$desc.= " ".$1;
 					$descend = 1;
 				};
 
-				if ($_ =~ /<\/programme>/ && $ch_found != 0) {            # find end channel
-					$data_found = -1 if ($ch_name_before ne $ch_name);      # Reset bei Kanalwechsel
-					$data_found++;
+				### FavTitle FavDesc over all Programms ###
+				if ($_ =~ /<\/programme>/ && $cmd =~ /loadEPG_Fav/) {
+					## looking for FavTitle ##
+					if (scalar(@FavTitle_array) > 0 && ($start gt $TimeNow)) {
+						for (my $i=0;$i<@FavTitle_array;$i++) {
+							if (grep /^\Q$FavTitle_array[$i]\E/, $title) {
+								$EPG_found++;
+								$FavTitle_found++;
+							}
+						}
+					}
+
+					## looking for FavDesc ##					
+					if (scalar(@FavDesc_array) > 0 && ($start gt $TimeNow)) {
+						for (my $i=0;$i<@FavDesc_array;$i++) {
+							if (grep /\Q$FavDesc_array[$i]/, $desc) {
+								$EPG_found++;
+								$FavDesc_found++;
+							}
+						}
+					}
+				}
+				### END ###
+
+				## FOUND - End of program entry ##
+				if ($_ =~ /<\/programme>/ && $EPG_found != 0) {          # find end channel
+					$array_cnt = -1 if ($Ch_name_before ne $Ch_name);      # Reset bei Kanalwechsel
+					$array_cnt++;
 					Log3 $name, 4, "#################################################";
-					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | ch_name          -> $ch_name";
-					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | ch_before        -> $ch_name_before";
-					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | EPG information  -> $data_found (value of array)";
+					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | ch_name          -> $Ch_name";
+					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | ch_before        -> $Ch_name_before";
+					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | EPG information  -> $array_cnt (value of array)";
+					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | FavDesc          -> $FavDesc_found";
+					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | FavTitle         -> $FavTitle_found";
 					Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | start (intern)   -> $start";
 					Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | end (indern)     -> $end";
 
 					## time format better for JSON and format once intern
-					($start,$end) = EPG_StartEnd_toISO_v1($start,$end);
+					($start) = EPG_Time_toISO_v1($start);
+					($end) = EPG_Time_toISO_v1($end);
 					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | start            -> $start";
 					Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | end              -> $end";
 
@@ -1525,41 +1572,45 @@ sub EPG_nonBlock_loadEPG_v1($) {
 					Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | subtitle         -> $subtitle";
 					Log3 $name, 5, "$name: nonBlock_loadEPG_v1 | desc             -> $desc.\n";
 
-					$hash->{helper}{HTML}{$ch_name}{ch_name} = $ch_name;
-					$hash->{helper}{HTML}{$ch_name}{ch_id} = $ch_id;
+					$hash->{helper}{HTML}{$Ch_name}{Ch_name} = $Ch_name;
+					$hash->{helper}{HTML}{$Ch_name}{Ch_id} = $Ch_id;
 
-					if ($Ch_select && $Ch_sort && (grep /$ch_name/, $Ch_select)) {
+					if ($Ch_select && $Ch_sort && (grep /$Ch_name/, $Ch_select)) {
 						foreach my $i (0 .. $#Ch_select_array) {
-							if ($Ch_select_array[$i] eq $ch_name) {
-								my $value_new = 999;
+							if ($Ch_select_array[$i] eq $Ch_name) {
+								my $value_new = EPG_Temp_ChSortNumbre;
 								$value_new = $Ch_sort_array[$i] if ($Ch_sort_array[$i] != 0);
-								$hash->{helper}{HTML}{$Ch_select_array[$i]}{ch_wish} = $value_new;
+								$hash->{helper}{HTML}{$Ch_select_array[$i]}{Ch_sort} = $value_new;
 								Log3 $name, 4, "$name: nonBlock_loadEPG_v1 old numbre of ".$Ch_select_array[$i]." set to ".$value_new;
 							}
 						}
 					} else {
-						$hash->{helper}{HTML}{$ch_name}{ch_wish} = 999;
+						$hash->{helper}{HTML}{$Ch_name}{Ch_sort} = EPG_Temp_ChSortNumbre;
 					}
 
 					my $mod_cnt;
 					($title, $subtitle, $desc, $mod_cnt) = EPG_SyntaxCheck_for_JSON_v1($hash, $title, $subtitle, $desc);
 
-					$hash->{helper}{HTML}{$ch_name}{title_wish} = "yes" if ($title_wish);
-					$hash->{helper}{HTML}{$ch_name}{EPG}[$data_found]{start} = $start;
-					$hash->{helper}{HTML}{$ch_name}{EPG}[$data_found]{end} = $end;
-					$hash->{helper}{HTML}{$ch_name}{EPG}[$data_found]{title} = $title;
-					$hash->{helper}{HTML}{$ch_name}{EPG}[$data_found]{subtitle} = $subtitle;
-					$hash->{helper}{HTML}{$ch_name}{EPG}[$data_found]{desc} = $desc;
+					$hash->{helper}{HTML}{$Ch_name}{EPG}[$array_cnt]{start} = $start;
+					$hash->{helper}{HTML}{$Ch_name}{EPG}[$array_cnt]{end} = $end;
+					$hash->{helper}{HTML}{$Ch_name}{EPG}[$array_cnt]{title} = $title;
+					$hash->{helper}{HTML}{$Ch_name}{EPG}[$array_cnt]{subtitle} = $subtitle;
+					$hash->{helper}{HTML}{$Ch_name}{EPG}[$array_cnt]{desc} = $desc;
 
 					### if modify JSON ###
-					Log3 $name, 5, "$name: nonBlock_loadEPG_v1 Dumper: ".Dumper\$hash->{helper}{HTML}{$ch_name}{EPG}[$data_found] if ($mod_cnt != 0);
+					Log3 $name, 5, "$name: nonBlock_loadEPG_v1 Dumper: ".Dumper\$hash->{helper}{HTML}{$Ch_name}{EPG}[$array_cnt] if ($mod_cnt != 0);
 
-					$ch_found = 0;
-					$ch_name_before = $ch_name;
-					$ch_name = "";
+					$EPG_cnt++;
+					$EPG_found = 0;
+					$Ch_name_before = $Ch_name;
+				}
+
+				## NOTHING FOUND - End of program entry - AND RESET values ##
+				if ($_ =~ /<\/programme>/) {
+					$Ch_name = "";
 					$desc = "";
-					$descstart = 0;
 					$descend = 0;
+					$descstart = 0;
 					$hour_diff_read = "";
 					$subtitle = "";
 					$title = "";
@@ -1567,48 +1618,62 @@ sub EPG_nonBlock_loadEPG_v1($) {
 			}
 		close FileCheck;
 
-		$EPG_info = $EPG_tt->{"loadEPG_msg1"} if ($data_found != -1);
-		$EPG_info = $EPG_tt->{"loadEPG_msg2"} if ($data_found == -1);
+		$EPG_info = $EPG_tt->{"loadEPG_msg1"} if ($array_cnt != -1);
+		$EPG_info = $EPG_tt->{"loadEPG_msg2"} if ($array_cnt == -1);
 	} else {
 		$EPG_info = $EPG_tt->{"loadEPG_msg3"};
 		Log3 $name, 3, "$name: nonBlock_loadEPG_v1 | error, file $EPG_file_name no found at ./opt/fhem/FHEM/EPG";
 	}
 
 	my $json_HTML;
-	$json_HTML = JSON->new->utf8(0)->encode($hash->{helper}{HTML}) if ($data_found != -1);
-	$json_HTML = "" if ($data_found == -1);
-
+	$json_HTML = JSON->new->utf8(0)->encode($hash->{helper}{HTML}) if ($array_cnt != -1);
+	$json_HTML = "" if ($array_cnt == -1);
 	Log3 $name, 5, "$name: nonBlock_loadEPG_v1 value JSON for delivery: $json_HTML";
-	$return = $name."|".$EPG_file_name."|".$EPG_info."|".$cmd."|".$json_HTML;
+
+	$return = $name."|".$EPG_file_name."|".$EPG_info."|".$cmd."|".$cmd2."|".$json_HTML."|".$last_loaded."|".$EPG_cnt."|".$EPG_file_last_timestamp;
 	return $return;
 }
 
 #####################
 sub EPG_nonBlock_loadEPG_v1Done($) {
 	my ($string) = @_;
-	my ($name, $EPG_file_name, $EPG_info, $cmd, $json_HTML) = split("\\|", $string);
+	my ($name, $EPG_file_name, $EPG_info, $cmd, $cmd2, $json_HTML, $last_loaded, $EPG_cnt, $EPG_file_last_timestamp) = split("\\|", $string);
   my $hash = $defs{$name};
-	my $Ch_Commands = AttrVal($name,"Ch_Commands", undef);
+	my $Ch_commands = AttrVal($name,"Ch_commands", undef);
 	my $Ch_Info_to_Reading = AttrVal($name, "Ch_Info_to_Reading", "no");
 	my $EPG_auto_download = AttrVal($name, "EPG_auto_download", "no");
-	my $FTUI_support = AttrVal($name, "FTUI_support", "off");
 	my $Ch_select = AttrVal($name, "Ch_select", undef);
 	my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+	my $room = AttrVal($name, "room", "");
+	my $FW_wname = !$FW_wname ? "WEB" : $FW_wname;
 
   Log3 $name, 4, "$name: nonBlock_loadEPG_v1Done running, $cmd from file $EPG_file_name";
   Log3 $name, 5, "$name: nonBlock_loadEPG_v1Done string=$string";
 
 	delete($hash->{helper}{RUNNING_PID});
-	
-	$json_HTML = eval {encode_utf8( $json_HTML )};
-	$HTML = eval { decode_json( $json_HTML ) } if ($json_HTML ne "");
+	$hash->{helper}{HTML_data_counter} = $EPG_cnt;
 
-	Log3 $name, 4, "$name: nonBlock_loadEPG_v1Done found ".scalar(keys %{$HTML})." broadcast information";
-	if (scalar(keys %{$HTML}) <= 0 && $EPG_auto_download eq "yes") {
+	if ($EPG_cnt == 0 && $EPG_auto_download eq "yes") {
+		$hash->{helper}{automatic_cnt}++;
+		## safety loop and STOP ##
+		if ($hash->{helper}{automatic_cnt} >= 2) {
+			$hash->{helper}{last_cmd} = "STOP";
+			Log3 $name, 2, "$name: nonBlock_loadEPG_v1Done automatic download STOP, no current data!";
+			readingsSingleUpdate($hash, "state", $EPG_tt->{"loadEPG_v1Done_STOP"},1);
+			return undef;
+		}
+
 		Log3 $name, 3, "$name: nonBlock_loadEPG_v1Done found 0 broadcast information, process automatic download started";
+		$hash->{helper}{last_cmd} = "automatic_loadFile";
 		CommandGet($hash, "$name loadFile");
 		return undef;
 	}
+
+	delete $hash->{helper}{automatic_cnt} if ($hash->{helper}{automatic_cnt});
+
+	Log3 $name, 4, "$name: nonBlock_loadEPG_v1Done found $EPG_cnt broadcast information";
+	$json_HTML = eval {encode_utf8( $json_HTML )};
+	my $HTML = eval { decode_json( $json_HTML ) } if ($json_HTML ne "");
 
 	if ($@) {
 		Log3 $name, 3, "$name: nonBlock_loadEPG_v1Done, Please report it to the developer with the following line!";
@@ -1657,18 +1722,27 @@ sub EPG_nonBlock_loadEPG_v1Done($) {
 		}
 	}
 
+	## Ch_commands check and set to helper ##
+	if ($Ch_commands) {
+		my $av = eval $Ch_commands;
+		if( $@ ) {
+			Log3 $name, 3, "$name: nonBlock_loadEPG_v1Done - Ch_Command, ERROR: ". $@;
+			delete $hash->{helper}{Ch_commands} if(defined($hash->{helper}{Ch_commands}));
+		} else {
+			$Ch_commands = $av if( ref($av) eq "HASH" );
+			$hash->{helper}{Ch_commands} = $Ch_commands;
+		}
+	}
+
 	## JSON data ##
 	my @mychannels = ();
-
 	foreach my $ch (keys %{$HTML}) {
 		## check Ch_Command for channel
-		if ($Ch_Commands) {
-			if (grep /$ch/, $Ch_Commands) {
-				foreach my $d (keys %{$hash->{helper}{Ch_Commands}}) {
-					if (exists $HTML->{$ch} && $d eq $ch) {
-						$HTML->{$d}{ch_command} = $hash->{helper}{Ch_Commands}{$d};
-						Log3 $name, 5, "$name: nonBlock_loadEPG_v1Done, JSON added Ch_Command for $d => " . $hash->{helper}{Ch_Commands}{$d};
-					}
+		if ($hash->{helper}{Ch_commands} && grep { $_ eq "$ch" } %{$hash->{helper}{Ch_commands}}) {
+			foreach my $d (keys %{$hash->{helper}{Ch_commands}}) {
+				if (exists $HTML->{$ch} && $d eq $ch) {
+					$HTML->{$d}{Ch_command} = $hash->{helper}{Ch_commands}{$d};
+					Log3 $name, 4, "$name: nonBlock_loadEPG_v1Done, Ch_Command found, $d => " . $hash->{helper}{Ch_commands}{$d};
 				}
 			}
 		}
@@ -1676,9 +1750,20 @@ sub EPG_nonBlock_loadEPG_v1Done($) {
 	}
 
 	$hash->{helper}{FTUI_data} = \@mychannels;
-	FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "location.reload('true')", "");		# reload Webseite
-	InternalTimer(gettimeofday()+2, "EPG_readingsSingleUpdate_later", "$name,$EPG_info,$cmd");
+	$hash->{helper}{HTML} = $HTML;
 	$hash->{helper}{last_cmd} = $cmd;
+	$hash->{helper}{last_loaded} = $last_loaded;
+	
+	if ($EPG_file_last_timestamp ne "") {
+		## change to FHEM format
+		($EPG_file_last_timestamp) = EPG_Time_toISO_v1($EPG_file_last_timestamp);
+		$hash->{helper}{EPG_file_last_timestamp} = $EPG_file_last_timestamp;
+	}
+
+	FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:$FW_wname", "location.reload('true')", "");		# reload Webseite
+
+	my $text = $cmd2 ne "" ? $cmd."_".$last_loaded : $cmd."_".$last_loaded;
+	InternalTimer(gettimeofday()+EPG_InternalTimer_DELAY, "EPG_readingsSingleUpdate_later", "$name,$EPG_info,$text");
 }
 
 #####################
@@ -1697,7 +1782,7 @@ sub EPG_nonBlock_loadEPG_v2($) {
 	my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
 
 	my $EPG_info = "";	
-	my $data_found = -1;         # counter to verification data
+	my $array_cnt = -1;         # counter to verification data
 
 	if (-e "./FHEM/EPG/$EPG_file_name") {
 		open (FileCheck,"<./FHEM/EPG/$EPG_file_name");
@@ -1711,8 +1796,8 @@ sub EPG_nonBlock_loadEPG_v2($) {
 		my $remove = shift @RRS;
 
 		for (@RRS) {
-			my $ch_found = 0;
-			my $ch_name;
+			my $EPG_found = 0;
+			my $Ch_name;
 			my $desc = "";
 			my $end;
 			my $start;
@@ -1727,38 +1812,38 @@ sub EPG_nonBlock_loadEPG_v2($) {
 				if ( ($Ch_select) && (grep /$search($|,)/, $Ch_select) ) {
 					#Log3 $name, 3, "$name: $cmd $_";
 					Log3 $name, 4, "$name: nonBlock_loadEPG_v2             -> $1 found";
-					$ch_name = $1;
-					$ch_found++;
-					$data_found++;
+					$Ch_name = $1;
+					$EPG_found++;
+					$array_cnt++;
 				} else {
 					Log3 $name, 5, "$name: nonBlock_loadEPG_v2             -> not $1 found";
 				}
 			}
 
-			if($_ =~ /:\s(.*)<\/title>/ && $ch_found != 0) {
-				Log3 $name, 4, "$name: nonBlock_loadEPG_v2 channel     -> ".$ch_name;
+			if($_ =~ /:\s(.*)<\/title>/ && $EPG_found != 0) {
+				Log3 $name, 4, "$name: nonBlock_loadEPG_v2 channel     -> ".$Ch_name;
 				Log3 $name, 4, "$name: nonBlock_loadEPG_v2 title       -> ".$1 ;
 
-				$hash->{helper}{HTML}{$ch_name}{EPG}[0]{title} = $1;
+				$hash->{helper}{HTML}{$Ch_name}{EPG}[0]{title} = $1;
 
 				### need check
-				if ($Ch_select && $Ch_sort && (grep /$ch_name/, $Ch_select)) {
+				if ($Ch_select && $Ch_sort && (grep /$Ch_name/, $Ch_select)) {
 					foreach my $i (0 .. $#Ch_select_array) {
-						if ($Ch_select_array[$i] eq $ch_name) {
-							my $value_new = 999;
+						if ($Ch_select_array[$i] eq $Ch_name) {
+							my $value_new = EPG_Temp_ChSortNumbre;
 							$value_new = $Ch_sort_array[$i] if ($Ch_sort_array[$i] != 0);
-							$hash->{helper}{HTML}{$Ch_select_array[$i]}{ch_wish} = $value_new;
+							$hash->{helper}{HTML}{$Ch_select_array[$i]}{Ch_sort} = $value_new;
 							Log3 $name, 4, "$name: nonBlock_loadEPG_v2 ch numbre   -> set to ".$value_new;
 						}
 					}
 				} else {
-					$hash->{helper}{HTML}{$ch_name}{ch_wish} = 999;
+					$hash->{helper}{HTML}{$Ch_name}{Ch_sort} = EPG_Temp_ChSortNumbre;
 				}
 				### need check attribut
-				$hash->{helper}{HTML}{$ch_name}{ch_name} = $ch_name;
+				$hash->{helper}{HTML}{$Ch_name}{Ch_name} = $Ch_name;
 			}
 
-			if($_ =~ /<!\[CDATA\[(.*)?((.*)?\d{2}\.\d{2}\.\d{4}\s(\d{2}:\d{2})\s+-\s+(\d{2}:\d{2}))(<br>)?((.*)((\n.*)?)+)]]/ && $ch_found != 0) {
+			if($_ =~ /<!\[CDATA\[(.*)?((.*)?\d{2}\.\d{2}\.\d{4}\s(\d{2}:\d{2})\s+-\s+(\d{2}:\d{2}))(<br>)?((.*)((\n.*)?)+)]]/ && $EPG_found != 0) {
 				Log3 $name, 4, "$name: nonBlock_loadEPG_v2 time        -> ".$2;    	 # 17.01.2020 20:15 - 21:15
 
 				($start,$end) = EPG_StartEnd_toISO_v2($2,$2);
@@ -1775,13 +1860,13 @@ sub EPG_nonBlock_loadEPG_v2($) {
 				#my $mod_cnt;
 				#($title, $desc, $mod_cnt) = EPG_SyntaxCheck_for_JSON_v2($hash, $title, $desc);
 
-				$hash->{helper}{HTML}{$ch_name}{EPG}[0]{start} = $start;
-				$hash->{helper}{HTML}{$ch_name}{EPG}[0]{end} = $end;
-				$hash->{helper}{HTML}{$ch_name}{EPG}[0]{desc} = $desc;
+				$hash->{helper}{HTML}{$Ch_name}{EPG}[0]{start} = $start;
+				$hash->{helper}{HTML}{$Ch_name}{EPG}[0]{end} = $end;
+				$hash->{helper}{HTML}{$Ch_name}{EPG}[0]{desc} = $desc;
 			}
 		}
-		$EPG_info = $EPG_tt->{"loadEPG_msg1"} if ($data_found != -1);
-		$EPG_info = $EPG_tt->{"loadEPG_msg2"} if ($data_found == -1);
+		$EPG_info = $EPG_tt->{"loadEPG_msg1"} if ($array_cnt != -1);
+		$EPG_info = $EPG_tt->{"loadEPG_msg2"} if ($array_cnt == -1);
 	} else {
 		$EPG_info = $EPG_tt->{"loadEPG_msg3"};
 		Log3 $name, 3, "$name: nonBlock_loadEPG_v2 | error, file $EPG_file_name no found at ./opt/fhem/FHEM/EPG";
@@ -1801,15 +1886,15 @@ sub EPG_nonBlock_loadEPG_v2Done($) {
 	my $Ch_Info_to_Reading = AttrVal($name, "Ch_Info_to_Reading", "no");
 	my $Ch_select = AttrVal($name, "Ch_select", undef);
 	my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+	my $room = AttrVal($name, "room", "");
+	my $FW_wname = !$FW_wname ? "WEB" : $FW_wname;
 
 	Log3 $name, 4, "$name: nonBlock_loadEPG_v2Done running, $cmd from file $EPG_file_name";
   Log3 $name, 5, "$name: nonBlock_loadEPG_v2Done string=$string";
 	delete($hash->{helper}{RUNNING_PID});
-	
-	$json_HTML = eval {encode_utf8( $json_HTML )};
-	$HTML = decode_json($json_HTML);
 
-	#Log3 $name, 3, "$name: nonBlock_loadEPG_v2Done ".Dumper\$HTML;
+	$json_HTML = eval {encode_utf8( $json_HTML )};
+	my $HTML = decode_json($json_HTML);
 
 	if ($Ch_Info_to_Reading eq "yes") {
 		## delete old Readings ##
@@ -1841,9 +1926,11 @@ sub EPG_nonBlock_loadEPG_v2Done($) {
 		}
 	}
 
-	FW_directNotify("FILTER=$name", "#FHEMWEB:WEB", "location.reload('true')", "");		            # reload Webseite
-	InternalTimer(gettimeofday()+2, "EPG_readingsSingleUpdate_later", "$name,$EPG_info,$cmd");
 	$hash->{helper}{last_cmd} = $cmd;
+	$hash->{helper}{HTML} = $HTML;
+
+	FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:$FW_wname", "location.reload('true')", "");		# reload Webseite
+	InternalTimer(gettimeofday()+EPG_InternalTimer_DELAY, "EPG_readingsSingleUpdate_later", "$name,$EPG_info,$cmd");
 }
 
 #####################
@@ -1866,6 +1953,7 @@ sub EPG_readingsSingleUpdate_later {
 
 	readingsBeginUpdate($hash);
 	readingsBulkUpdate($hash, "state", $parameter[1]) if ($parameter[1]);
+	readingsBulkUpdate($hash, "EPG_file_last_timestamp", $hash->{helper}{EPG_file_last_timestamp}) if ($hash->{helper}{EPG_file_last_timestamp});
 	readingsBulkUpdate($hash, "EPG_last_loaded", $parameter[2]) if ($parameter[2]);
 	readingsEndUpdate($hash, 1);
 }
@@ -1880,6 +1968,17 @@ sub EPG_readingsDeleteChannel($) {
 			Log3 $name, 5, "$name: readingsDeleteChannel delete $reading";
 			readingsDelete($hash,$reading);		
 		}
+	}
+}
+
+#####################
+sub EPG_Reset_HELPER($) {
+	my ($hash) = @_;
+	my $name = $hash->{NAME};
+	Log3 $name, 5, "$name: Reset_HELPER is running";
+
+	foreach my $value (qw(Channels_available EPG_file_last_timestamp HTML HTML_data_counter Programm last_cmd)) {
+		delete $hash->{helper}{$value} if(defined($hash->{helper}{$value}));
 	}
 }
 
@@ -2021,12 +2120,11 @@ sub EPG_SyntaxCheck_for_JSON_v2($$$) {
 ##################### ( valid Format´s for Date.parse() )
 # 20200116101500 +0100 to 2020-01-16T10:15:00
 # 20200116101500 +0100 to 2020-01-16 10:15:00
-sub EPG_StartEnd_toISO_v1($$) {
-	my($start, $end) = @_;
+sub EPG_Time_toISO_v1($) {
+	my($time) = @_;
 
-	$start = substr($start,0,4)."-".substr($start,4,2)."-".substr($start,6,2)." ".substr($start,8,2).":".substr($start,10,2).":".substr($start,12,2);
-	$end = substr($end,0,4)."-".substr($end,4,2)."-".substr($end,6,2)." ".substr($end,8,2).":".substr($end,10,2).":".substr($end,12,2);
-	return ($start, $end);
+	$time = substr($time,0,4)."-".substr($time,4,2)."-".substr($time,6,2)." ".substr($time,8,2).":".substr($time,10,2).":".substr($time,12,2);	
+	return ($time);
 }
 
 ##################### ( valid Format´s for Date.parse() )
@@ -2117,10 +2215,14 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
 		<li>jsonEPG: outputs the loaded information in JSON format</li><a name=""></a>
 		<a name="loadEPG_now"></a>
 		<li>loadEPG_now: let the EPG data of the selected channels at the present time</li><a name=""></a>
-		<a name="loadEPG_Fav"></a>
-		<li>loadEPG_Fav: Loads the EPG data of the defined title of the attribute <code>FavoriteShows</code></li><a name=""></a>
+		<a name="loadEPG_FavDesc"></a>
+		<li>loadEPG_FavDesc: Loads the EPG data of the defined title of the attribute <code>FavDesc</code></li><a name=""></a>
+		<a name="loadEPG_FavTitle"></a>
+		<li>loadEPG_FavTitle: Loads the EPG data of the defined title of the attribute <code>FavTitle</code></li><a name=""></a>
 		<a name="loadEPG_Prime"></a>
 		<li>loadEPG_Prime: let the EPG data of the selected channels be at PrimeTime 20:15</li><a name=""></a>
+		<a name="loadEPG_time"></a>
+		<li>loadEPG_time: let the EPG data of the selected channels be at input time (example: <code> get EPG loadEPG_time 20200210_1745</code>)</li><a name=""></a>
 		<a name="loadEPG_today"></a>
 		<li>loadEPG_today: let the EPG data of the selected channels be from the current day</li><a name=""></a>
 		<a name="loadFile"></a>
@@ -2130,13 +2232,7 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
 
 <b>Attribute</b><br>
 	<ul><li><a href="#disable">disable</a></li></ul><br>
-	<ul><li><a name="Ch_select">Ch_select</a><br>
-	This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired channels.<br>
-	<i>Normally you do not have to edit this attribute manually.</i></li><a name=" "></a></ul><br>
-	<ul><li><a name="Ch_sort">Ch_sort</a><br>
-	This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired new channelnumbre.<br>
-	<i>Normally you do not have to edit this attribute manually. Once you clear this attribute, there is no manual sort!</i></li><a name=" "></a></ul><br>
-	<ul><li><a name="Ch_Commands">Ch_Commands</a><br>
+	<ul><li><a name="Ch_commands">Ch_commands</a><br>
 	This allows commands to be assigned to the transmitters, which are executed when the transmitter is clicked.<br>
 	The transmitter is shown as a link in the table. Important, take over the channel name correctly!<br><br>
 	<u>Example code to assign a FHEM command to 2 transmitters:</u><br>
@@ -2144,6 +2240,12 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
 	"Das Erste" => "set Fernsehr_LG channel 1",<br>
 	"ZDF" => "set Lampe off"<br>
 	}</code><br></a></ul><br>
+	<ul><li><a name="Ch_select">Ch_select</a><br>
+	This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired channels.<br>
+	<i>Normally you do not have to edit this attribute manually.</i></li><a name=" "></a></ul><br>
+	<ul><li><a name="Ch_sort">Ch_sort</a><br>
+	This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired new channelnumbre.<br>
+	<i>Normally you do not have to edit this attribute manually. Once you clear this attribute, there is no manual sort!</i></li><a name=" "></a></ul><br>
 	<ul><li><a name="Ch_Info_to_Reading">Ch_Info_to_Reading</a><br>
 	You can write the data in readings (yes | no = default)</a></ul><br>
 	<ul><li><a name="DownloadFile">DownloadFile</a><br>
@@ -2155,7 +2257,9 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
 	<ul><li><a name="EPG_auto_update">EPG_auto_update</a><br>
 	This enables the automatic update of the view data in the front end. The setting is effective for a FHEM restart, where the data is loaded immediately or when you click on the room view.
 	The attribute has no influence on the detailed view. (yes | no = default)</a></ul><br>
-	<ul><li><a name="FavoriteShows">FavoriteShows</a><br>
+	<ul><li><a name="FavDesc">FavDesc</a><br>
+	Names of programs which are searched for separately. (values ​​must be separated by a semicolon)</a></ul><br>
+	<ul><li><a name="FavTitle">FavTitle</a><br>
 	Names of programs which are searched for separately. (values ​​must be separated by a semicolon)</a></ul><br>
 	<ul><li><a name="HTTP_TimeOut">HTTP_TimeOut</a><br>
 	Maximum time in seconds for the download. (default 10 | maximum 90)</li><a name=" "></a></ul><br>
@@ -2234,27 +2338,25 @@ Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind z
 		<a name="jsonEPG"></a>
 		<li>jsonEPG: gibt die geladen Informationen im JSON Format zurück</li><a name=""></a>
 		<a name="loadEPG_now"></a>
-		<li>loadEPG_now: l&auml;d die EPG-Daten der ausgew&auml;hlten Kan&auml;le vom jetzigen Zeitpunkt</li><a name=""></a>
-		<a name="loadEPG_Fav"></a>
-		<li>loadEPG_Fav: l&auml;d die EPG-Daten der definierten Titel des Attributes <code>FavoriteShows</code></li><a name=""></a>
+		<li>loadEPG_now: l&auml;dt die EPG-Daten der ausgew&auml;hlten Kan&auml;le vom jetzigen Zeitpunkt</li><a name=""></a>
+		<a name="loadEPG_FavDesc"></a>
+		<li>loadEPG_FavDesc: l&auml;dt die EPG-Daten der definierten Beschreibung des Attributes <code>FavDesc</code></li><a name=""></a>
+		<a name="loadEPG_FavTitle"></a>
+		<li>loadEPG_FavTitle: l&auml;dt die EPG-Daten der definierten Titel des Attributes <code>FavTitle</code></li><a name=""></a>
 		<a name="loadEPG_Prime"></a>
-		<li>loadEPG_Prime: l&auml;d die EPG-Daten der ausgew&auml;hlten Kan&auml;le von der PrimeTime 20:15Uhr</li><a name=""></a>
+		<li>loadEPG_Prime: l&auml;dt die EPG-Daten der ausgew&auml;hlten Kan&auml;le von der PrimeTime 20:15Uhr</li><a name=""></a>
+		<a name="loadEPG_time"></a>
+		<li>loadEPG_time: l&auml;dt die EPG-Daten der ausgew&auml;hlten Kan&auml;le zum angegebenen Zeitpunkt (Bsp: <code> get EPG loadEPG_time 20200210_1745</code>)</li><a name=""></a>
 		<a name="loadEPG_today"></a>
-		<li>loadEPG_today: l&auml;d die EPG-Daten der ausgew&auml;hlten Kan&auml;le vom aktuellen Tag</li><a name=""></a>
+		<li>loadEPG_today: l&auml;dt die EPG-Daten der ausgew&auml;hlten Kan&auml;le vom aktuellen Tag</li><a name=""></a>
 		<a name="loadFile"></a>
-		<li>loadFile: l&auml;d die Datei mit den Informationen herunter</li><a name=""></a>
+		<li>loadFile: l&auml;dt die Datei mit den Informationen herunter</li><a name=""></a>
 	</ul>
 <br><br>
 
 <b>Attribute</b><br>
 	<ul><li><a href="#disable">disable</a></li></ul><br>
-	<ul><li><a name="Ch_select">Ch_select</a><br>
-	Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschten Kan&auml;le definierte.<br>
-	<i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten.</i></li><a name=" "></a></ul><br>
-	<ul><li><a name="Ch_sort">Ch_sort</a><br>
-	Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschte neue Kanalnummer definierte.<br>
-	<i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten. Sobald man dieses Attribut l&ouml;scht, ist keine manuelle Sortierung vorhanden!</i></li><a name=" "></a></ul><br>
-	<ul><li><a name="Ch_Commands">Ch_Commands</a><br>
+	<ul><li><a name="Ch_commands">Ch_commands</a><br>
 	Hiermit kann den Sendern Kommandos zuweisen, welche ausgef&uuml;hrt werden beim Klick auf den Sender.<br>
 	Die Darstellung des Senders erfolgt als Link in der Tabelle. Wichtig, Sendernamen richtig &uuml;bernehmen!<br><br>
 	<u>Beispielcode um 2 Sendern einen FHEM Befehl zuzuweisen:</u><br>
@@ -2262,6 +2364,12 @@ Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind z
 	"Das Erste" => "set Fernsehr_LG channel 1",<br>
 	"ZDF" => "set Lampe off"<br>
 	}</code><br></a></ul><br>
+	<ul><li><a name="Ch_select">Ch_select</a><br>
+	Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschten Kan&auml;le definierte.<br>
+	<i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten.</i></li><a name=" "></a></ul><br>
+	<ul><li><a name="Ch_sort">Ch_sort</a><br>
+	Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschte neue Kanalnummer definierte.<br>
+	<i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten. Sobald man dieses Attribut l&ouml;scht, ist keine manuelle Sortierung vorhanden!</i></li><a name=" "></a></ul><br>
 	<ul><li><a name="Ch_Info_to_Reading">Ch_Info_to_Reading</a><br>
 	Hiermit kann man die Daten in Readings schreiben lassen (yes | no = default)</a></ul><br>
 	<ul><li><a name="DownloadFile">DownloadFile</a><br>
@@ -2273,8 +2381,10 @@ Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind z
 	<ul><li><a name="EPG_auto_update">EPG_auto_update</a><br>
 	Hiermit kann die automatische Aktualisierung der Ansichtsdaten im FrontEnd aktiviert werden. Die Einstellung wirkt bei einem FHEM Restart, wo sofort die Daten geladen werden oder
 	bei einem Klick auf die Raumansicht. Auf die Detailansicht hat das Attribut keinen Einfluss. (yes | no = default)</a></ul><br>
-	<ul><li><a name="FavoriteShows">FavoriteShows</a><br>
-	Namen von Sendungen welche gezielt gesucht werden k&ouml;nnen. (mehrere Werte m&uuml;ssen durch ein Semikolon getrennt werden)</a></ul><br>
+	<ul><li><a name="FavDesc">FavDesc</a><br>
+	Namen von Beschreibungen einer Sendung welche gezielt gesucht werden k&ouml;nnen. (mehrere Werte m&uuml;ssen durch ein Semikolon getrennt werden)</a></ul><br>
+	<ul><li><a name="FavTitle">FavTitle</a><br>
+	Namen vom Titel einer Sendung welche gezielt gesucht werden k&ouml;nnen. (mehrere Werte m&uuml;ssen durch ein Semikolon getrennt werden)</a></ul><br>
 	<ul><li><a name="HTTP_TimeOut">HTTP_TimeOut</a><br>
 	Maximale Zeit in Sekunden für den Download. (Standard 10 | maximal 90)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table">Table</a><br>
