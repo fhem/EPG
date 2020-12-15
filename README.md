@@ -1,4 +1,4 @@
-# EPG - FHEM Module (pre-release now)
+# EPG - FHEM Module
 
 ## Used branching model
 * Master branch: Development version (https://github.com/fhem/EPG)
