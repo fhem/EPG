@@ -20,8 +20,6 @@ extension Pre release
 2020-01-14 - Update 66_EPG.pm
 
 - added new attrib FTUI_support for FTUI_Info reading with JSON data
-2020-01-14 - Update 66_EPG.pm
-
 - fix, found wrong desc value (line to much)
 2020-01-13 - Update 66_EPG.pm
 
