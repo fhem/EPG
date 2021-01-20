@@ -1,5 +1,3 @@
-2021-01-20 - Merge branch 'pre-release' of https://github.com/fhem/EPG into pre-release
-2021-01-20 - Update CHANGED
 2021-01-20 - Update 66_EPG.pm
 
   * revised commandref link´s
@@ -18,7 +16,6 @@ extension Pre release
 - revised time output in FW_Detail
 - revised desc output
 - update commandref
-2020-01-14 - Merge branch 'pre-release' of https://github.com/fhem/EPG into pre-release
 2020-01-14 - Update 66_EPG.pm
 
 - added new attrib FTUI_support for FTUI_Info reading with JSON data
