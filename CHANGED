@@ -1,9 +1,6 @@
 2021-01-20 - Update 66_EPG.pm
 
-* revised some syntax "  to '  for PerlCritic
-2021-01-20 - Update CHANGED
-2021-01-20 - Update 66_EPG.pm
-
+  * revised some syntax "  to '  for PerlCritic
   * revised commandref link´s
   * revised hard tabs to spaces for PerlCritic
 2020-12-02 - Update 66_EPG.pm
