@@ -2186,14 +2186,15 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Basic.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Common.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(x)</small></li>
-        <li>http://epg.energyiptv.com/epg/epg.xml.gz <small>&nbsp;&nbsp;(&#10003; slowly due to dataset)</small></li>
-        <li>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.vuplus-community.net/rytec/rytecDE_Common.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.xmltvepg.nl/rytecDE_Basic.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.xmltvepg.nl/rytecDE_Common.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li><a href="http://rytecepg.epgspot.com/epg_data/" target=”_blank”>http://rytecepg.epgspot.com/epg_data/</a> <small>&nbsp;&nbsp;(&#10003; - Auswahl nach L&auml;ndern)</small></li>
-        <li><a href="https://rytec.ricx.nl/epg_data/" target=”_blank”>https://rytec.ricx.nl/epg_data/</a> <small>&nbsp;&nbsp;(&#10003; - Auswahl nach L&auml;ndern)</small></li>
+        <li><a href="http://epg.energyiptv.com/epg/epg.xml.gz" target=”_blank”>http://epg.energyiptv.com/epg/epg.xml.gz</a> <small>&nbsp;&nbsp;(&#10003; langsam aufgrund Datenmenge)</small></li>
+        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Basic.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Common.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.xmltvepg.nl/rytecDE_Basic.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.xmltvepg.nl/rytecDE_Common.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.xmltvepg.nl/rytecDE_SportMovies.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li>http://rytecepg.epgspot.com/epg_data <small>&nbsp;&nbsp;(x)</small></li>
+        <li>https://rytec.ricx.nl/epg_data <small>&nbsp;&nbsp;(x)</small></li>
       </ul><br>
   </li>
   <li> IPTV_XML (<a href="https://iptv.community/threads/epg.5423" target="_blank">IPTV.community</a>) </li>
@@ -2309,15 +2310,15 @@ Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind z
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Basic.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Common.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(x)</small></li>
-        <li>http://epg.energyiptv.com/epg/epg.xml.gz <small>&nbsp;&nbsp;(&#10003; langsam aufgrund Datenmenge)</small></li>
-        <li>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.vuplus-community.net/rytec/rytecDE_Common.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.xmltvepg.nl/rytecDE_Basic.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.xmltvepg.nl/rytecDE_Common.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li>http://www.xmltvepg.nl/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li><a href="http://rytecepg.epgspot.com/epg_data/" target=”_blank”>http://rytecepg.epgspot.com/epg_data/</a> <small>&nbsp;&nbsp;(&#10003; - Auswahl nach L&auml;ndern)</small></li>
-        <li><a href="https://rytec.ricx.nl/epg_data/" target=”_blank”>https://rytec.ricx.nl/epg_data/</a> <small>&nbsp;&nbsp;(&#10003; - Auswahl nach L&auml;ndern)</small></li>
+        <li><a href="http://epg.energyiptv.com/epg/epg.xml.gz" target=”_blank”>http://epg.energyiptv.com/epg/epg.xml.gz</a> <small>&nbsp;&nbsp;(&#10003; langsam aufgrund Datenmenge)</small></li>
+        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Basic.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Common.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.xmltvepg.nl/rytecDE_Basic.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.xmltvepg.nl/rytecDE_Common.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li><a href="http://www.xmltvepg.nl/rytecDE_SportMovies.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li>http://rytecepg.epgspot.com/epg_data <small>&nbsp;&nbsp;(x)</small></li>
+        <li>https://rytec.ricx.nl/epg_data <small>&nbsp;&nbsp;(x)</small></li>
       </ul><br>
   </li>
   <li> IPTV_XML (<a href="https://iptv.community/threads/epg.5423" target="_blank">IPTV.community</a>) </li>
