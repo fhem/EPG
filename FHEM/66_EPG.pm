@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 66_EPG.pm 21010 2021-01-20 23:10:00Z HomeAuto_User $
+# $Id: 66_EPG.pm 21010 2021-10-01 23:10:00Z HomeAuto_User $
 #
 # Github - FHEM Home Automation System
 # https://github.com/fhem/EPG
@@ -118,7 +118,7 @@ my %EPG_transtable_EN = (
     ## EPG_nonBlock_abortFn ##
     'nonBlock_abortFn'    =>  'timeout nonBlock function'
     );
-    
+
  my %EPG_transtable_DE = ( 
     ## Days ##
     'day0'                =>  'Sonntag',
@@ -645,9 +645,11 @@ sub EPG_FW_Detail($@) {
             {text:"select all", click:function(){
               $("#EPG_ListWindow table td input:checkbox").prop(\'checked\', true);
             }},
+
             {text:"deselect all", click:function(){
               $("#EPG_ListWindow table td input:checkbox").prop(\'checked\', false);
             }},
+
             {text:"save", click:function(){
               var Channel = [];
               var Channel_id = [];
@@ -676,10 +678,12 @@ sub EPG_FW_Detail($@) {
               $(div).remove();
               location.reload();
             }},
+
             {text:"close", click:function(){
               $(this).dialog("close");
               $(div).remove();
-            }}]
+            }}
+          ]
         });
       }
 
@@ -693,7 +697,7 @@ sub EPG_FW_Detail($@) {
         }
       }
 
-      /* FW_detail Buttons */     
+      /* FW_detail Buttons */
       function pushed_button(txt) {
         FW_cmd(FW_root+ \'?XHR=1"'.$FW_CSRF.'"&cmd={EPG_FW_pushed_button("'.$name.'","\'+txt+\'")}\');
       }
@@ -862,6 +866,7 @@ sub EPG_FW_Popup_Channels {
 
   for (my $i=0; $i<scalar(@Channels_available); $i++) {
     my $checked = '';
+    $Ch_sort = '';
 
     if ($Ch_select && index($Ch_select,$Channels_available[$i]) >= 0) {
       $checked_cnt++;
@@ -875,7 +880,6 @@ sub EPG_FW_Popup_Channels {
 
     $html_site_ch.= sprintf("<tr class=\"%s\">", ($i & 1)?"even":"odd");
     $html_site_ch.= "<td align=\"center\">".($i + 1)."</td><td align=\"center\"><input type=\"checkbox\" id=\"".$i."\" name=\"".$Channels_available[$i]."\" onclick=\"Checkbox(".$i.")\" $checked></td><td>". $Channels_available[$i] ."</td><td> <input type=\"text\" pattern=\"[0-9]+\" id=\"".$i."\" value=\"$Ch_sort\" maxlength=\"3\" size=\"3\"> </td></tr>";
-    $Ch_sort = '';
   }
 
   $html_site_ch.= "</table></div>";
@@ -2188,9 +2192,9 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Common.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li><a href="http://epg.energyiptv.com/epg/epg.xml.gz" target=”_blank”>http://epg.energyiptv.com/epg/epg.xml.gz</a> <small>&nbsp;&nbsp;(&#10003; langsam aufgrund Datenmenge)</small></li>
-        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Basic.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Common.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz <small>&nbsp;&nbsp;(x)</small></li>
+        <li>http://www.vuplus-community.net/rytec/rytecDE_Common.xz <small>&nbsp;&nbsp;(x)</small></li>
+        <li>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li><a href="http://www.xmltvepg.nl/rytecDE_Basic.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
         <li><a href="http://www.xmltvepg.nl/rytecDE_Common.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
         <li><a href="http://www.xmltvepg.nl/rytecDE_SportMovies.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
@@ -2311,9 +2315,9 @@ Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind z
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Common.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li><a href="http://epg.energyiptv.com/epg/epg.xml.gz" target=”_blank”>http://epg.energyiptv.com/epg/epg.xml.gz</a> <small>&nbsp;&nbsp;(&#10003; langsam aufgrund Datenmenge)</small></li>
-        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Basic.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_Common.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
-        <li><a href="http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz" target=”_blank”>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
+        <li>http://www.vuplus-community.net/rytec/rytecDE_Basic.xz <small>&nbsp;&nbsp;(x)</small></li>
+        <li>http://www.vuplus-community.net/rytec/rytecDE_Common.xz <small>&nbsp;&nbsp;(x)</small></li>
+        <li>http://www.vuplus-community.net/rytec/rytecDE_SportMovies.xz <small>&nbsp;&nbsp;(x)</small></li>
         <li><a href="http://www.xmltvepg.nl/rytecDE_Basic.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Basic.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
         <li><a href="http://www.xmltvepg.nl/rytecDE_Common.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_Common.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
         <li><a href="http://www.xmltvepg.nl/rytecDE_SportMovies.xz" target=”_blank”>http://www.xmltvepg.nl/rytecDE_SportMovies.xz</a> <small>&nbsp;&nbsp;(&#10003;)</small></li>
