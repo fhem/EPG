@@ -1,20 +1,20 @@
 2021-12-16 - Update 66_EPG.pm
 
-* fix
+- fix
 2021-10-01 - Update 66_EPG.pm
 
-* fixed little beauty mistake
-* updated commandref
+- fixed little beauty mistake
+- updated commandref
 2021-01-20 - Update CHANGED
 2021-01-20 - Update 66_EPG.pm
 
-  * revised some syntax "  to '  for PerlCritic
-  * revised commandref link´s
-  * revised hard tabs to spaces for PerlCritic
+- revised some syntax "  to '  for PerlCritic
+- revised commandref link´s
+- revised hard tabs to spaces for PerlCritic
 2020-12-02 - Update 66_EPG.pm
 
- * update module
- * revised comments
+- update module
+- revised comments
 2020-01-20 - Merge pull request #1 from fhem/pre-release_ext_JSON
 
 extension Pre release
