@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 66_EPG.pm 21010 2021-10-01 23:10:00Z HomeAuto_User $
+# $Id: 66_EPG.pm 21010 2021-12-16 21:10:00Z HomeAuto_User $
 #
 # Github - FHEM Home Automation System
 # https://github.com/fhem/EPG
@@ -33,7 +33,7 @@ use constant {
   EPG_FW_errmsg_time      => 5000, # milliseconds
   EPG_InternalTimer_DELAY => 2,    # seconds
   EPG_Temp_ChSortNumbre   => 999,
-  EPG_VERSION             => '20210120_pre_release',
+  EPG_VERSION             => '20211216_pre_release',
 };
 
 my %EPG_transtable_EN = ( 
@@ -763,7 +763,7 @@ sub EPG_FW_Detail($@) {
       $html_site .= "<div id=\"table\"><table id=\"FW_Detail\" class=\"block wide\">";
 
       ## HTML view normal ##
-      if ($hash->{helper}{last_cmd} !~ /^loadEPG_Fav/) {
+      if ($hash->{helper}{last_cmd} && $hash->{helper}{last_cmd} !~ /^loadEPG_Fav/) {
         ## time now - normal
         my ($sec,$min,$hour,$mday,$mon,$year,$wday,$ydat,$isdst) = localtime(fhemTimeGm(0, 0, 0, substr($hash->{helper}{last_loaded},6,2) * 1, ( substr($hash->{helper}{last_loaded},4,2) * 1 - 1 ), ( substr($hash->{helper}{last_loaded},0,4) * 1 - 1900 ) ));
         $date = $EPG_tt->{'day'.$wday}.', '.sprintf("%02s",$mday).' '.$EPG_tt->{'months'.($mon + 1)}.' '.substr($hash->{helper}{last_loaded},0,4);
@@ -2015,6 +2015,17 @@ sub EPG_SyntaxCheck_for_JSON_v1($$$$) {
           Log3 $name, 4, "$name: SyntaxCheck_for_JSON_v1 orginal: ".$values[$i];
         }
         $values[$i] =~ s/\s\\\s/ /g;
+        $mod_cnt++;
+        Log3 $name, 4, "$name: SyntaxCheck_for_JSON_v1 modded: ".$values[$i];
+      }
+
+      if ($values[$i] =~ /\s\\/) {
+        $error_cnt++;
+        if ($error_cnt != 0) {
+          Log3 $name, 4, "$name: SyntaxCheck_for_JSON_v1 found wrong syntax ".'-> \<-';
+          Log3 $name, 4, "$name: SyntaxCheck_for_JSON_v1 orginal: ".$values[$i];
+        }
+        $values[$i] =~ s/\s\\/ /g;
         $mod_cnt++;
         Log3 $name, 4, "$name: SyntaxCheck_for_JSON_v1 modded: ".$values[$i];
       }
