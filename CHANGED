@@ -1,8 +1,21 @@
-2021-01-20 - Merge branch 'pre-release'
+2021-12-16 - Update CHANGED
+2021-12-16 - Update 66_EPG.pm
+
+- fix
+2021-10-01 - Update 66_EPG.pm
+
+- fixed little beauty mistake
+- updated commandref
+2021-01-20 - Update CHANGED
+2021-01-20 - Update 66_EPG.pm
+
+- revised some syntax "  to '  for PerlCritic
+- revised commandref link´s
+- revised hard tabs to spaces for PerlCritic
 2020-12-02 - Update 66_EPG.pm
 
- * update module
- * revised comments
+- update module
+- revised comments
 2020-01-20 - Merge pull request #1 from fhem/pre-release_ext_JSON
 
 extension Pre release
@@ -13,19 +26,13 @@ extension Pre release
 - revised time output in FW_Detail
 - revised desc output
 - update commandref
-2020-01-20 - Automaitc updated controls and CHANGED
-2020-01-14 - Merge branch 'pre-release' of https://github.com/fhem/EPG into pre-release
 2020-01-14 - Update 66_EPG.pm
 
 - added new attrib FTUI_support for FTUI_Info reading with JSON data
-2020-01-14 - Update 66_EPG.pm
-
 - fix, found wrong desc value (line to much)
 2020-01-13 - Update 66_EPG.pm
 
 - fix fix multiline line
-2020-01-13 - Update 66_EPG.pm
-
 - fix multiline description
 2020-01-05 - Update 66_EPG.pm
 
@@ -33,8 +40,6 @@ extension Pre release
 2019-12-27 - Update 66_EPG.pm
 
 - fix syntax
-2019-12-27 - Update 66_EPG.pm
-
 - added some FTUI Syntax in HTML
 - added one more syntax check for error in JSON
 2019-12-21 - Update 66_EPG.pm
@@ -54,24 +59,16 @@ extension Pre release
 - added some Hints to better understanding
 - added attrib EPG_auto_update to load new Data on room
 - revised commandref
-2019-12-14 - Update 66_EPG.pm
-
 - added buttons in room to change view
 2019-12-13 - Update 66_EPG.pm
 
 - fixed cmd loadEPG_Fav (older informations are not view)
-2019-12-13 - Update 66_EPG.pm
-
 - rename variable
 - fix cell spacing for f18 style
-2019-12-13 - Update 66_EPG.pm
-
 - fixed PERL WARNING: "my" variable $start masks earlier declaration in same scope
 2019-12-09 - Update 66_EPG.pm
 
 - added option loadEPG_Fav for some methode (user must define attrib FavoriteShows)
-2019-12-09 - Update 66_EPG.pm
-
 - fix weekday sunday
 - revised some user text
 2019-12-04 - Update 66_EPG.pm
@@ -82,23 +79,15 @@ extension Pre release
 
 - customization Readings to standard X_name_time
 - revised logoutput
-2019-12-03 - Update 66_EPG.pm
-
 - fix FW_Detail
 - added date Style
-2019-12-03 - Update 66_EPG.pm
-
 - adaptation transtable
 2019-12-02 - Update 66_EPG.pm
 
 - added translation table
-2019-12-02 - Update 66_EPG.pm
-
 - added command loadEPG_Fav
 - added attrib list with FavoriteShows
 - revised commandref
-2019-12-02 - Update 66_EPG.pm
-
 - added clean Readings if no aviable channels
 - Ch_Info_to_Reading work now with loadEPG_today
 2019-11-26 - Update 66_EPG.pm
