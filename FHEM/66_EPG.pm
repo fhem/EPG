@@ -437,7 +437,7 @@ sub EPG_Attr {
   my $hash = $defs{$name};
   my $typ = $hash->{TYPE};
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
-  my $Variant = AttrVal($name, 'Variant', undef);
+  my $Variant = AttrVal($name, 'Variant', 'unknown');
 
   ## in any attribute redefinition readjust language ##
   my $lang = uc(AttrVal('global','language','EN'));
@@ -1332,7 +1332,11 @@ sub EPG_nonBlock_available_channelsDone {
   $ch_table = $additive_info if ($Variant eq 'teXXas_RSS');
 
   $hash->{helper}{Programm} = $ch_table;
-  CommandAttr($hash,"$name Variant $Variant") if ($Variant ne 'unknown');
+
+  if ($Variant ne 'unknown') {
+    Log3 $name, 4, "$name: nonBlock_available_channelsDone found attr Variant with value $Variant";
+    CommandAttr($hash,"$name Variant $Variant");
+  }
   FW_directNotify("FILTER=$name", "#FHEMWEB:$FW_wname", "location.reload('true')", "");               # reload Webseite
 
   if (AttrVal($name, 'Ch_select', undef)) {
