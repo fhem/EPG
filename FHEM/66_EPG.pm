@@ -271,14 +271,9 @@ sub EPG_Define {
         Log3 $filelogName, 2, "$name: ERROR: $ret";
       } else {
         ### Attributes ###
-        CommandAttr($hash,"$filelogName room $autocreateDeviceRoom");
         CommandAttr($hash,"$filelogName logtype text");
-        CommandAttr($hash,"$name room $autocreateDeviceRoom");
       }
     }
-
-    ### Attributes ###
-    CommandAttr($hash,"$name room $typ") if (!defined AttrVal($name, 'room', undef));       # set room, if only undef --> new def
   }
 
   $hash->{VERSION} = EPG_VERSION;
