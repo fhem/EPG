@@ -33,7 +33,7 @@ use constant {
   EPG_FW_errmsg_time      => 5000, # milliseconds
   EPG_InternalTimer_DELAY => 2,    # seconds
   EPG_Temp_ChSortNumbre   => 999,
-  EPG_VERSION             => '20220310_pre_release',
+  EPG_VERSION             => '20220311_pre_release',
 };
 
 my %EPG_transtable_EN = ( 
@@ -437,7 +437,7 @@ sub EPG_Attr {
   my $hash = $defs{$name};
   my $typ = $hash->{TYPE};
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
-  my $Variant = AttrVal($name, 'Variant', 'unknown');
+  my $Variant = AttrVal($name, 'Variant', undef);
 
   ## in any attribute redefinition readjust language ##
   my $lang = uc(AttrVal('global','language','EN'));
@@ -479,12 +479,11 @@ sub EPG_Attr {
 
       ## check syntax and set Ch_command device to list "Probably associated with" ##
       if( $attrValue =~ m/^\{.*\}$/s && $attrValue =~ m/=>/ && $attrValue !~ m/\$/ ) {
-        my $av = eval { $attrValue };
+        my $av = eval $attrValue;
         if( $@ ) {
           Log3 $name, 3, "$name: Attr - $attrName, ERROR: ". $@;
         } else {
-          my $Ch_commands;
-          if( ref($av) eq "HASH" ) { $Ch_commands = $av; }
+          my $Ch_commands = $av if( ref($av) eq "HASH" );
           my $associatedWith = '';
 
           foreach my $d (keys %{$Ch_commands}) {
@@ -504,7 +503,7 @@ sub EPG_Attr {
       }
     }
 
-    if ($attrName eq 'Variant' && $attrValue ne $Variant) {
+    if ($attrName eq 'Variant' && $Variant && $attrValue ne $Variant) {
       delete $attr{$name}{Ch_sort} if ($attrName eq 'Ch_select' && $attr{$name}{Ch_sort});
       delete $attr{$name}{Ch_select} if ($attrName eq 'Ch_sort' && $attr{$name}{Ch_select});
 
@@ -854,8 +853,7 @@ sub EPG_FW_Popup_Channels {
   my $html_site_ch = '';
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $Ch_sort = AttrVal($name, 'Ch_sort', '');
-  my @Ch_sort;
-  if ($Ch_sort ne '') { @Ch_sort = split(",",$Ch_sort); }
+  my @Ch_sort = split(",",$Ch_sort) if ($Ch_sort ne '');
   my $checked_cnt = -1;
   my @Channels_available = @{$hash->{helper}{Channels_available}};
   my $HTML = $hash->{helper}{HTML};
@@ -980,7 +978,6 @@ sub EPG_ParseHttpResponse {
   my $HttpResponse = '';
   my $HTTP_TimeOut = AttrVal($name, 'HTTP_TimeOut', 10);
   my $state = $EPG_tt->{'ParseHttp_state1'};
-  my $FileAge = undef;
   my $EPG_auto_download = AttrVal($name, 'EPG_auto_download', 'no');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
@@ -1285,8 +1282,7 @@ sub EPG_nonBlock_available_channelsDone {
   my $ch_table = '';
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $EPG_auto_update = AttrVal($name, 'EPG_auto_update', 'no');
-  my @Ch_select_array;
-  if ($Ch_select) { @Ch_select_array = split(",",$Ch_select); }
+  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
   return unless(defined($string));
@@ -1360,13 +1356,11 @@ sub EPG_nonBlock_loadEPG_v1 {
   my ($name, $EPG_file_name, $cmd, $cmd2) = split("\\|", $string);
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $Ch_sort = AttrVal($name, 'Ch_sort', undef);
-  my $FavDesc;
-  my $FavTitle;
-  if ($cmd eq 'loadEPG_FavDesc') { $FavDesc = AttrVal($name, 'FavDesc', undef); }
-  my @FavDesc_array = split(";",$FavDesc);
+  my $FavDesc = AttrVal($name, 'FavDesc', undef) if ($cmd eq 'loadEPG_FavDesc');
+  my @FavDesc_array = split(";",$FavDesc) if ($FavDesc);
   my $FavDesc_found = 0;
-  if ($cmd eq 'loadEPG_FavTitle') { $FavTitle = AttrVal($name, 'FavTitle', undef); }
-  my @FavTitle_array = split(";",$FavTitle);
+  my $FavTitle = AttrVal($name, 'FavTitle', undef) if ($cmd eq 'loadEPG_FavTitle');
+  my @FavTitle_array = split(";",$FavTitle) if ($FavTitle);
   my $FavTitle_found = 0;
 
   my $hash = $defs{$name};
@@ -1400,11 +1394,8 @@ sub EPG_nonBlock_loadEPG_v1 {
   my $today_start = '';               # today time start
   my $EPG_file_last_timestamp = '';   # last timestamp on file
 
-  my @Ch_select_array;
-  my @Ch_sort_array;
-
-  if ($Ch_select) { @Ch_select_array = split(",",$Ch_select); }
-  if ($Ch_sort) { @Ch_sort_array = split(",",$Ch_sort); }
+  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
 
   if ($TimeLocaL_GMT_Diff < 0) {
     $TimeLocaL_GMT_Diff = abs($TimeLocaL_GMT_Diff);
@@ -1666,8 +1657,7 @@ sub EPG_nonBlock_loadEPG_v1Done {
   my $Ch_Info_to_Reading = AttrVal($name, 'Ch_Info_to_Reading', 'no');
   my $EPG_auto_download = AttrVal($name, 'EPG_auto_download', 'no');
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
-  my @Ch_select_array;
-  if ($Ch_select) { @Ch_select_array = split(",",$Ch_select); }
+  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
   my $room = AttrVal($name, 'room', '');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
@@ -1697,9 +1687,7 @@ sub EPG_nonBlock_loadEPG_v1Done {
 
   Log3 $name, 4, "$name: nonBlock_loadEPG_v1Done found $EPG_cnt broadcast information";
   $json_HTML = eval {encode_utf8( $json_HTML )};
-
-  my $HTML;
-  if ($json_HTML ne '') { $HTML = eval { decode_json( $json_HTML ) }; }
+  my $HTML = eval { decode_json( $json_HTML ) } if ($json_HTML ne '');
 
   if ($@) {
     Log3 $name, 3, "$name: nonBlock_loadEPG_v1Done, Please report it to the developer with the following line!";
@@ -1750,7 +1738,7 @@ sub EPG_nonBlock_loadEPG_v1Done {
 
   ## Ch_commands check and set to helper ##
   if ($Ch_commands) {
-    my $av = eval { $Ch_commands };
+    my $av = eval $Ch_commands;
     if( $@ ) {
       Log3 $name, 3, "$name: nonBlock_loadEPG_v1Done - Ch_Command, ERROR: ". $@;
       delete $hash->{helper}{Ch_commands} if(defined($hash->{helper}{Ch_commands}));
@@ -1805,11 +1793,8 @@ sub EPG_nonBlock_loadEPG_v2 {
   Log3 $name, 4, "$name: nonBlock_loadEPG_v2 running, $cmd from file $EPG_file_name";
   Log3 $name, 5, "$name: nonBlock_loadEPG_v2 string=$string";
 
-  my @Ch_select_array;
-  my @Ch_sort_array;
-
-  if ($Ch_select) { @Ch_select_array = split(",",$Ch_select); }
-  if ($Ch_sort) { @Ch_sort_array = split(",",$Ch_sort); }
+  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
 
   my $EPG_info = '';  
   my $array_cnt = -1;         # counter to verification data
@@ -1915,8 +1900,7 @@ sub EPG_nonBlock_loadEPG_v2Done {
   my $hash = $defs{$name};
   my $Ch_Info_to_Reading = AttrVal($name, 'Ch_Info_to_Reading', 'no');
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
-  my @Ch_select_array;
-  if ($Ch_select) { @Ch_select_array = split(",",$Ch_select); }
+  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
   my $room = AttrVal($name, 'room', '');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
