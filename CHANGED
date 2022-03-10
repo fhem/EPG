@@ -1,5 +1,8 @@
 2022-03-10 - Update 66_EPG.pm
 
+  - remove fixed attr room
+2022-03-10 - Update 66_EPG.pm
+
   - revised code for perlcritic
 2022-03-08 - Automaitc updated controls and CHANGED
 2022-03-08 - Update CHANGED
