@@ -453,7 +453,7 @@ sub EPG_Attr {
       return 'Your input must begin with http:// or https://' if ($attrValue !~ /^htt(p|ps):\/\//);
     }
 
-    if ($attrName eq 'DownloadFile' && $attrValue ne AttrVal($name, 'DownloadFile', undef)) {
+    if ($attrName eq 'DownloadFile' && AttrVal($name, 'DownloadFile', undef) && $attrValue ne AttrVal($name, 'DownloadFile', undef)) {
       readingsDelete($hash,'EPG_file_last_timestamp') if(ReadingsVal($name, 'EPG_file_last_timestamp', undef));
       readingsDelete($hash,'EPG_last_loaded') if(ReadingsVal($name, 'EPG_last_loaded', undef));
 
@@ -1206,9 +1206,9 @@ sub EPG_nonBlock_available_channels {
   Log3 $name, 5, "$name: nonBlock_available_channels string=$string";
 
   if (-e "./FHEM/EPG/$EPG_file_name") {
-    open my $FileCheck, q{<} , "./FHEM/EPG/$EPG_file_name";
+    open (FileCheck, q{<} , "./FHEM/EPG/$EPG_file_name");
       my $line_cnt = 0;
-      while ($FileCheck) {
+      while (<FileCheck>) {
         my $Ch_name;
         $line_cnt++;
         if ($line_cnt > 0 && $line_cnt <= 3) {
@@ -1257,7 +1257,7 @@ sub EPG_nonBlock_available_channels {
           }
         }
       }
-    close $FileCheck;
+    close FileCheck;
 
     if ($Variant eq 'Rytec' || $Variant eq 'TvProfil_XMLTV' || $Variant eq 'WebGrab+Plus' || $Variant eq 'XMLTV.se') {
       $additive_info = JSON->new->utf8(0)->encode($hash->{helper}{Programm});
@@ -1445,8 +1445,8 @@ sub EPG_nonBlock_loadEPG_v1 {
   Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | TimeNow          -> $TimeNow";
 
   if (-e "./FHEM/EPG/$EPG_file_name") {
-    open my $FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name";
-      while ($FileCheck) {
+    open (FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name");
+      while (FileCheck) {
         if ($_ =~ /<programme start="(.*\s+(.*))" stop="(.*)" channel="(.*)"/) {      # find start | end | channel
           my $search = $hash->{helper}{Programm}{$4};
           #Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | data for channel    -> $search";
@@ -1634,7 +1634,7 @@ sub EPG_nonBlock_loadEPG_v1 {
           $title = '';
         }
       }
-    close $FileCheck;
+    close FileCheck;
 
     $EPG_info = $EPG_tt->{'loadEPG_msg1'} if ($array_cnt != -1);
     $EPG_info = $EPG_tt->{'loadEPG_msg2'} if ($array_cnt == -1);
@@ -1810,12 +1810,12 @@ sub EPG_nonBlock_loadEPG_v2 {
   my $array_cnt = -1;         # counter to verification data
 
   if (-e "./FHEM/EPG/$EPG_file_name") {
-    open my $FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name";
+    open (FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name");
       my $string = '';
-      while ($FileCheck) {
+      while (FileCheck) {
         $string .= $_;
       }
-    close $FileCheck;
+    close FileCheck;
     #Log3 $name, 4, "$name: nonBlock_loadEPG_v2 $string";
     my @RRS = split("<item>", $string);
     my $remove = shift @RRS;
