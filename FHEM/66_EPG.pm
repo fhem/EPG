@@ -552,7 +552,7 @@ sub EPG_FW_Detail {
   Log3 $name, 5, "$name: FW_Detail - Channels_available: ".scalar(@Channels_available);
 
   if ($Ch_select) {
-    @Channels_select = split(",", $Ch_select);
+    @Channels_select = split(',', $Ch_select);
     $cnt_ch_select = scalar(@Channels_select);
     Log3 $name, 5, "$name: FW_Detail - channel_select: ".$cnt_ch_select;
   }
@@ -853,7 +853,7 @@ sub EPG_FW_Popup_Channels {
   my $html_site_ch = '';
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $Ch_sort = AttrVal($name, 'Ch_sort', '');
-  my @Ch_sort = split(",",$Ch_sort) if ($Ch_sort ne '');
+  my @Ch_sort = split(',',$Ch_sort) if ($Ch_sort ne '');
   my $checked_cnt = -1;
   my @Channels_available = @{$hash->{helper}{Channels_available}};
   my $HTML = $hash->{helper}{HTML};
@@ -891,9 +891,9 @@ sub EPG_FW_set_Attr_Channels {
   my $hash = $defs{$name};
   my $room = AttrVal($name, 'room', '');
   my $Ch_select = shift;
-  my @Ch_select_array = split(",",$Ch_select);
+  my @Ch_select_array = split(',',$Ch_select);
   my $Ch_sort = shift;
-  my @Ch_sort_array = split(",",$Ch_sort);
+  my @Ch_sort_array = split(',',$Ch_sort);
   my $HTML = $hash->{helper}{HTML};
 
   Log3 $name, 4, "$name: FW_set_Attr_Channels is running";
@@ -1282,7 +1282,7 @@ sub EPG_nonBlock_available_channelsDone {
   my $ch_table = '';
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $EPG_auto_update = AttrVal($name, 'EPG_auto_update', 'no');
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
   return unless(defined($string));
@@ -1309,7 +1309,7 @@ sub EPG_nonBlock_available_channelsDone {
       if (not grep /^$Ch_select_array[$i]$/, @Channels_available) {
         my %mod = map { ($_ => 1) }
               grep { $_ !~ m/^$Ch_select_array[$i](:.+)?$/ }
-              split(",", $Ch_select);
+              split(',', $Ch_select);
         $attr{$name}{Ch_select} = join(",", sort keys %mod);
         delete $attr{$name}{Ch_select} if( (!keys %mod && defined($attr{$name}{Ch_select})) || (defined($attr{$name}{Ch_select}) && $attr{$name}{Ch_select} eq '') );
         Log3 $name, 4, "$name: nonBlock_available_channelsDone delete $Ch_select_array[$i] from list Ch_select -> not available";
@@ -1357,10 +1357,10 @@ sub EPG_nonBlock_loadEPG_v1 {
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $Ch_sort = AttrVal($name, 'Ch_sort', undef);
   my $FavDesc = AttrVal($name, 'FavDesc', undef) if ($cmd eq 'loadEPG_FavDesc');
-  my @FavDesc_array = split(";",$FavDesc) if ($FavDesc);
+  my @FavDesc_array = split(';',$FavDesc) if ($FavDesc);
   my $FavDesc_found = 0;
   my $FavTitle = AttrVal($name, 'FavTitle', undef) if ($cmd eq 'loadEPG_FavTitle');
-  my @FavTitle_array = split(";",$FavTitle) if ($FavTitle);
+  my @FavTitle_array = split(';',$FavTitle) if ($FavTitle);
   my $FavTitle_found = 0;
 
   my $hash = $defs{$name};
@@ -1394,8 +1394,8 @@ sub EPG_nonBlock_loadEPG_v1 {
   my $today_start = '';               # today time start
   my $EPG_file_last_timestamp = '';   # last timestamp on file
 
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
-  my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
+  my @Ch_sort_array = split(',',$Ch_sort) if ($Ch_sort);
 
   if ($TimeLocaL_GMT_Diff < 0) {
     $TimeLocaL_GMT_Diff = abs($TimeLocaL_GMT_Diff);
@@ -1657,7 +1657,7 @@ sub EPG_nonBlock_loadEPG_v1Done {
   my $Ch_Info_to_Reading = AttrVal($name, 'Ch_Info_to_Reading', 'no');
   my $EPG_auto_download = AttrVal($name, 'EPG_auto_download', 'no');
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
   my $room = AttrVal($name, 'room', '');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
@@ -1793,8 +1793,8 @@ sub EPG_nonBlock_loadEPG_v2 {
   Log3 $name, 4, "$name: nonBlock_loadEPG_v2 running, $cmd from file $EPG_file_name";
   Log3 $name, 5, "$name: nonBlock_loadEPG_v2 string=$string";
 
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
-  my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
+  my @Ch_sort_array = split(',',$Ch_sort) if ($Ch_sort);
 
   my $EPG_info = '';  
   my $array_cnt = -1;         # counter to verification data
@@ -1900,7 +1900,7 @@ sub EPG_nonBlock_loadEPG_v2Done {
   my $hash = $defs{$name};
   my $Ch_Info_to_Reading = AttrVal($name, 'Ch_Info_to_Reading', 'no');
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
   my $room = AttrVal($name, 'room', '');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
@@ -1963,7 +1963,7 @@ sub EPG_nonBlock_abortFn {
 ##################### (name,one reading,or more readings with "," cut)
 sub EPG_readingsSingleUpdate_later {
   my ($param) = @_;
-  my @parameter = split(",", $param);
+  my @parameter = split(',', $param);
   my $hash = $defs{$parameter[0]};
 
   Log3 $parameter[0], 4, "$parameter[0]: readingsSingleUpdate_later running";
