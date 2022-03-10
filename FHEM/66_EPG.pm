@@ -1446,7 +1446,7 @@ sub EPG_nonBlock_loadEPG_v1 {
 
   if (-e "./FHEM/EPG/$EPG_file_name") {
     open (FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name");
-      while (FileCheck) {
+      while (<FileCheck>) {
         if ($_ =~ /<programme start="(.*\s+(.*))" stop="(.*)" channel="(.*)"/) {      # find start | end | channel
           my $search = $hash->{helper}{Programm}{$4};
           #Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | data for channel    -> $search";
@@ -1812,7 +1812,7 @@ sub EPG_nonBlock_loadEPG_v2 {
   if (-e "./FHEM/EPG/$EPG_file_name") {
     open (FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name");
       my $string = '';
-      while (FileCheck) {
+      while (<FileCheck>) {
         $string .= $_;
       }
     close FileCheck;
