@@ -934,6 +934,7 @@ sub EPG_FW_set_Attr_Channels {
     }
     CommandGet($hash, "$name $hash->{helper}{last_cmd}") if ($hash->{helper}{last_cmd});
   }
+  readingsSingleUpdate($hash, 'state' , $EPG_tt->{'chDone_msg_OK'}, 1);
   return;
 }
 
@@ -1334,7 +1335,7 @@ sub EPG_nonBlock_available_channelsDone {
   $hash->{helper}{Programm} = $ch_table;
 
   if ($Variant ne 'unknown') {
-    Log3 $name, 4, "$name: nonBlock_available_channelsDone found attr Variant with value $Variant";
+    Log3 $name, 4, "$name: nonBlock_available_channelsDone found variant=$Variant for attr";
     CommandAttr($hash,"$name Variant $Variant");
   }
   FW_directNotify("FILTER=$name", "#FHEMWEB:$FW_wname", "location.reload('true')", "");               # reload Webseite
