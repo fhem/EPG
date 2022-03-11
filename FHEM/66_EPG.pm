@@ -1712,7 +1712,7 @@ sub EPG_nonBlock_loadEPG_v1Done {
       }
     }
 
-    if ($cmd =~ /loadEPG_now/ || $cmd =~ /loadEPG_Prime/ || $cmd =~ /loadEPG_today/) {
+    if ($cmd eq 'loadEPG_Prime' || $cmd eq 'loadEPG_now' || $cmd eq 'loadEPG_time' || $cmd eq 'loadEPG_today') {
       ## create Readings ##
       readingsBeginUpdate($hash);
 
@@ -1920,7 +1920,7 @@ sub EPG_nonBlock_loadEPG_v2Done {
       }
     }
 
-    if ($cmd =~ /loadEPG_(Prime|now)/) {
+    if ($cmd eq 'loadEPG_Prime' || $cmd eq 'loadEPG_now') {
       ## create Readings ##
       readingsBeginUpdate($hash);
 
