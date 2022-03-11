@@ -1,13 +1,10 @@
 2022-03-11 - Update 66_EPG.pm
 
 - fix readings
-2022-03-10 - Update CHANGED
 2022-03-10 - Update 66_EPG.pm
 
-  - remove fixed attr room
-  - revised code for perlcritic
-2022-03-08 - Automaitc updated controls and CHANGED
-2022-03-08 - Update CHANGED
+- remove fixed attr room
+- revised code for perlcritic
 2021-12-16 - Update 66_EPG.pm
 
 - fix
