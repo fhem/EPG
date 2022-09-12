@@ -33,7 +33,7 @@ use constant {
   EPG_FW_errmsg_time      => 5000, # milliseconds
   EPG_InternalTimer_DELAY => 2,    # seconds
   EPG_Temp_ChSortNumbre   => 999,
-  EPG_VERSION             => '20211216_pre_release',
+  EPG_VERSION             => '20220311_pre_release',
 };
 
 my %EPG_transtable_EN = ( 
@@ -208,14 +208,14 @@ my $osname = $^O;
 my $gzError;
 my $xzError;
 
-eval "use Encode qw(encode encode_utf8 decode_utf8);1" or $missingModulEPG .= 'Encode || libencode-perl, ';
-eval "use JSON;1" or $missingModulEPG .= 'JSON || libjson-perl, ';
-eval "use XML::Simple;1" or $missingModulEPG .= 'XML::Simple || libxml-simple-perl, ';
+eval {use Encode qw(encode encode_utf8 decode_utf8);1} or $missingModulEPG .= 'Encode || libencode-perl, ';
+eval {use JSON;1} or $missingModulEPG .= 'JSON || libjson-perl, ';
+eval {use XML::Simple;1} or $missingModulEPG .= 'XML::Simple || libxml-simple-perl, ';
 
 my @tools = ('gzip','xz');
 
 #####################
-sub EPG_Initialize($) {
+sub EPG_Initialize {
   my ($hash) = @_;
 
   $hash->{AttrFn}                = 'EPG_Attr';
@@ -238,10 +238,12 @@ sub EPG_Initialize($) {
   ## in any attribute redefinition readjust language ##
   my $lang = uc(AttrVal('global','language','EN'));
   $EPG_tt = $lang eq 'DE' ? \%EPG_transtable_DE : \%EPG_transtable_EN;
+
+  return;
 }
 
 #####################
-sub EPG_Define($$) {
+sub EPG_Define {
   my ($hash, $def) = @_;
   my @arg = split("[ \t][ \t]*", $def);
   my $name = $arg[0];                 ## Definitionsname
@@ -269,14 +271,9 @@ sub EPG_Define($$) {
         Log3 $filelogName, 2, "$name: ERROR: $ret";
       } else {
         ### Attributes ###
-        CommandAttr($hash,"$filelogName room $autocreateDeviceRoom");
         CommandAttr($hash,"$filelogName logtype text");
-        CommandAttr($hash,"$name room $autocreateDeviceRoom");
       }
     }
-
-    ### Attributes ###
-    CommandAttr($hash,"$name room $typ") if (!defined AttrVal($name, 'room', undef));       # set room, if only undef --> new def
   }
 
   $hash->{VERSION} = EPG_VERSION;
@@ -285,11 +282,11 @@ sub EPG_Define($$) {
   readingsBeginUpdate($hash);
   readingsBulkUpdate($hash, 'state' , 'Defined');
   readingsEndUpdate($hash, 0);
-  return undef;
+  return;
 }
 
 #####################
-sub EPG_Set($$$@) {
+sub EPG_Set {
   my ( $hash, $name, @a ) = @_;
   my $setList = '';
   my $cmd = $a[0];
@@ -298,11 +295,11 @@ sub EPG_Set($$$@) {
 
   return "$name: no set function exists" if ($cmd ne '?');
   return $setList if ( $a[0] eq '?');
-  return undef;
+  return;
 }
 
 #####################
-sub EPG_Get($$$@) {
+sub EPG_Get {
   my ( $hash, $name, $cmd, @a ) = @_;
   my $cmd2 = defined $a[0] ? $a[0] : '';
   my $room = AttrVal($name, 'room', '');
@@ -343,7 +340,7 @@ sub EPG_Get($$$@) {
   if ($cmd eq 'loadFile') {
     FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:$FW_wname", "FW_errmsg('$name: ".$EPG_tt->{'Notify_auto_msg'}." $cmd' , ".EPG_FW_errmsg_time.")", "");
     EPG_PerformHttpRequest($hash);
-    return undef;
+    return;
   }
 
   if ($cmd eq 'available_channels') {
@@ -357,7 +354,7 @@ sub EPG_Get($$$@) {
 
     readingsSingleUpdate($hash, 'state', $EPG_tt->{'get_available_ch'}, 1);
     $hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_available_channels", $name.'|'.ReadingsVal($name, 'EPG_file_name', undef), "EPG_nonBlock_available_channelsDone", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
-    return undef;
+    return;
   }
 
   if ($cmd eq 'jsonEPG') {
@@ -401,7 +398,7 @@ sub EPG_Get($$$@) {
 
       Log3 $name, 4, "$name: get $cmd - starting blocking call";
       $hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_loadEPG_v1", $name.'|'.ReadingsVal($name, 'EPG_file_name', undef).'|'.$cmd.'|'.$cmd2, "EPG_nonBlock_loadEPG_v1Done", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
-      return undef;
+      return;
     }
 
     ## loadEPG_FavTitle | loadEPG_FavDesc ##
@@ -411,7 +408,7 @@ sub EPG_Get($$$@) {
 
       delete $hash->{helper}{HTML} if(defined($hash->{helper}{HTML}));
       $hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_loadEPG_v1", $name.'|'.ReadingsVal($name, 'EPG_file_name', undef).'|'.$cmd.'|'.$cmd2, "EPG_nonBlock_loadEPG_v1Done", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
-      return undef;
+      return;
     }
   }
 
@@ -427,7 +424,7 @@ sub EPG_Get($$$@) {
       Log3 $name, 4, "$name: get $cmd - starting blocking call";
 
       $hash->{helper}{RUNNING_PID} = BlockingCall("EPG_nonBlock_loadEPG_v2", $name.'|'.ReadingsVal($name, 'EPG_file_name', undef).'|'.$cmd.'|'.$cmd2, "EPG_nonBlock_loadEPG_v2Done", 60 , "EPG_nonBlock_abortFn", $hash) unless(exists($hash->{helper}{RUNNING_PID}));
-      return undef;
+      return;
     }
   }
 
@@ -435,7 +432,7 @@ sub EPG_Get($$$@) {
 }
 
 #####################
-sub EPG_Attr() {
+sub EPG_Attr {
   my ($cmd, $name, $attrName, $attrValue) = @_;
   my $hash = $defs{$name};
   my $typ = $hash->{TYPE};
@@ -456,7 +453,7 @@ sub EPG_Attr() {
       return 'Your input must begin with http:// or https://' if ($attrValue !~ /^htt(p|ps):\/\//);
     }
 
-    if ($attrName eq 'DownloadFile' && $attrValue ne AttrVal($name, 'DownloadFile', undef)) {
+    if ($attrName eq 'DownloadFile' && AttrVal($name, 'DownloadFile', undef) && $attrValue ne AttrVal($name, 'DownloadFile', undef)) {
       readingsDelete($hash,'EPG_file_last_timestamp') if(ReadingsVal($name, 'EPG_file_last_timestamp', undef));
       readingsDelete($hash,'EPG_last_loaded') if(ReadingsVal($name, 'EPG_last_loaded', undef));
 
@@ -506,7 +503,7 @@ sub EPG_Attr() {
       }
     }
 
-    if ($attrName eq 'Variant' && $attrValue ne $Variant) {
+    if ($attrName eq 'Variant' && $Variant && $attrValue ne $Variant) {
       delete $attr{$name}{Ch_sort} if ($attrName eq 'Ch_select' && $attr{$name}{Ch_sort});
       delete $attr{$name}{Ch_select} if ($attrName eq 'Ch_sort' && $attr{$name}{Ch_select});
 
@@ -525,10 +522,12 @@ sub EPG_Attr() {
 
     EPG_Reset_HELPER($hash) if ( $attrName eq 'Variant' );
   }
+
+  return;
 }
 
 #####################
-sub EPG_FW_Detail($@) {
+sub EPG_FW_Detail {
   my ($FW_wname, $name, $room, $pageHash) = @_;
   my $hash = $defs{$name};
   my $Ch_commands = AttrVal($name,'Ch_commands', undef);
@@ -553,7 +552,7 @@ sub EPG_FW_Detail($@) {
   Log3 $name, 5, "$name: FW_Detail - Channels_available: ".scalar(@Channels_available);
 
   if ($Ch_select) {
-    @Channels_select = split(",", $Ch_select);
+    @Channels_select = split(',', $Ch_select);
     $cnt_ch_select = scalar(@Channels_select);
     Log3 $name, 5, "$name: FW_Detail - channel_select: ".$cnt_ch_select;
   }
@@ -854,7 +853,7 @@ sub EPG_FW_Popup_Channels {
   my $html_site_ch = '';
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $Ch_sort = AttrVal($name, 'Ch_sort', '');
-  my @Ch_sort = split(",",$Ch_sort) if ($Ch_sort ne '');
+  my @Ch_sort = split(',',$Ch_sort) if ($Ch_sort ne '');
   my $checked_cnt = -1;
   my @Channels_available = @{$hash->{helper}{Channels_available}};
   my $HTML = $hash->{helper}{HTML};
@@ -892,9 +891,9 @@ sub EPG_FW_set_Attr_Channels {
   my $hash = $defs{$name};
   my $room = AttrVal($name, 'room', '');
   my $Ch_select = shift;
-  my @Ch_select_array = split(",",$Ch_select);
+  my @Ch_select_array = split(',',$Ch_select);
   my $Ch_sort = shift;
-  my @Ch_sort_array = split(",",$Ch_sort);
+  my @Ch_sort_array = split(',',$Ch_sort);
   my $HTML = $hash->{helper}{HTML};
 
   Log3 $name, 4, "$name: FW_set_Attr_Channels is running";
@@ -933,6 +932,8 @@ sub EPG_FW_set_Attr_Channels {
     }
     CommandGet($hash, "$name $hash->{helper}{last_cmd}") if ($hash->{helper}{last_cmd});
   }
+  readingsSingleUpdate($hash, 'state' , $EPG_tt->{'chDone_msg_OK'}, 1);
+  return;
 }
 
 ##################### (SAVE Button on PopUp -> Anpassung Attribute Channels)
@@ -946,10 +947,11 @@ sub EPG_FW_pushed_button {
   foreach my $value (qw(now Prime FavDesc FavTitle)) {
     CommandGet($hash, "$name loadEPG_".$value) if ($command eq $value);
   }
+  return;
 }
 
 #####################
-sub EPG_PerformHttpRequest($) {
+sub EPG_PerformHttpRequest {
   my ($hash, $def) = @_;
   my $name = $hash->{NAME};
   my $DownloadURL = AttrVal($name, 'DownloadURL', undef);
@@ -964,10 +966,11 @@ sub EPG_PerformHttpRequest($) {
                       callback   => \&EPG_ParseHttpResponse                    # Diese Funktion soll das Ergebnis dieser HTTP Anfrage bearbeiten
               };
   HttpUtils_NonblockingGet($http_param);                                       # Starten der HTTP Abfrage
+  return;
 }
 
 #####################
-sub EPG_ParseHttpResponse($$$) {
+sub EPG_ParseHttpResponse {
   my ($http_param, $err, $data) = @_;
   my $hash = $http_param->{hash};
   my $name = $hash->{NAME};
@@ -975,7 +978,6 @@ sub EPG_ParseHttpResponse($$$) {
   my $HttpResponse = '';
   my $HTTP_TimeOut = AttrVal($name, 'HTTP_TimeOut', 10);
   my $state = $EPG_tt->{'ParseHttp_state1'};
-  my $FileAge = undef;
   my $EPG_auto_download = AttrVal($name, 'EPG_auto_download', 'no');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
@@ -1031,10 +1033,11 @@ sub EPG_ParseHttpResponse($$$) {
 
   # loadEPG_now if cmd automatic_loadFile after "found 0 broadcast information, process automatic download started"
   CommandGet($hash, "$name loadEPG_now") if ($EPG_auto_download eq 'yes' && $hash->{helper}{last_cmd} && $hash->{helper}{last_cmd} eq 'automatic_loadFile');
+  return;
 }
 
 #####################
-sub EPG_UnCompress_gz($$) {
+sub EPG_UnCompress_gz {
   my ($hash,$file) = @_;
   my $name = $hash->{NAME};
   my $input = "./FHEM/EPG/".$file;
@@ -1069,7 +1072,7 @@ sub EPG_UnCompress_gz($$) {
 }
 
 #####################
-sub EPG_UnCompress_xz($$) {
+sub EPG_UnCompress_xz {
   my ($hash,$file) = @_;
   my $name = $hash->{NAME};
   my $input = "./FHEM/EPG/".$file;
@@ -1107,7 +1110,7 @@ sub EPG_UnCompress_xz($$) {
 }
 
 #####################
-sub EPG_Notify($$) {
+sub EPG_Notify {
   my ($hash, $dev_hash) = @_;
   my $name = $hash->{NAME};
   my $typ = $hash->{TYPE};
@@ -1121,11 +1124,11 @@ sub EPG_Notify($$) {
     Log3 $name, 5, "$name: Notify is running and starting";
     CommandGet($hash, "$name available_channels");
   }
-  return undef;
+  return;
 }
 
 #####################
-sub EPG_Undef($$) {
+sub EPG_Undef {
   my ($hash, $arg) = @_;
   my $name = $hash->{NAME};
 
@@ -1135,7 +1138,7 @@ sub EPG_Undef($$) {
   foreach my $value (qw(Channels_available Ch_commands EPG_file_last_timestamp FTUI_data HTML HTML_data_counter HTML_reload automatic_cnt last_cmd last_loaded programm)) {
     delete $hash->{helper}{$value} if(defined($hash->{helper}{$value}));
   }
-  return undef;
+  return;
 }
 
 #####################
@@ -1182,10 +1185,11 @@ sub EPG_File_check {
   readingsBulkUpdate($hash, 'EPG_file_age' , $FileAge);
   readingsBulkUpdate($hash, 'EPG_file_name' , $DownloadFile);
   readingsEndUpdate($hash, 0);
+  return;
 }
 
 #####################
-sub EPG_nonBlock_available_channels($) {
+sub EPG_nonBlock_available_channels {
   my ($string) = @_;
   my ($name, $EPG_file_name) = split("\\|", $string);
   my $hash = $defs{$name};
@@ -1200,7 +1204,7 @@ sub EPG_nonBlock_available_channels($) {
   Log3 $name, 5, "$name: nonBlock_available_channels string=$string";
 
   if (-e "./FHEM/EPG/$EPG_file_name") {
-    open (FileCheck,"<./FHEM/EPG/$EPG_file_name");
+    open (FileCheck, q{<} , "./FHEM/EPG/$EPG_file_name");
       my $line_cnt = 0;
       while (<FileCheck>) {
         my $Ch_name;
@@ -1271,14 +1275,14 @@ sub EPG_nonBlock_available_channels($) {
 }
 
 #####################
-sub EPG_nonBlock_available_channelsDone($) {
+sub EPG_nonBlock_available_channelsDone {
   my ($string) = @_;
   my ($name, $EPG_file_name, $ok, $Variant, $ch_available, $additive_info) = split("\\|", $string);
   my $hash = $defs{$name};
   my $ch_table = '';
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $EPG_auto_update = AttrVal($name, 'EPG_auto_update', 'no');
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
   return unless(defined($string));
@@ -1305,7 +1309,7 @@ sub EPG_nonBlock_available_channelsDone($) {
       if (not grep /^$Ch_select_array[$i]$/, @Channels_available) {
         my %mod = map { ($_ => 1) }
               grep { $_ !~ m/^$Ch_select_array[$i](:.+)?$/ }
-              split(",", $Ch_select);
+              split(',', $Ch_select);
         $attr{$name}{Ch_select} = join(",", sort keys %mod);
         delete $attr{$name}{Ch_select} if( (!keys %mod && defined($attr{$name}{Ch_select})) || (defined($attr{$name}{Ch_select}) && $attr{$name}{Ch_select} eq '') );
         Log3 $name, 4, "$name: nonBlock_available_channelsDone delete $Ch_select_array[$i] from list Ch_select -> not available";
@@ -1325,7 +1329,11 @@ sub EPG_nonBlock_available_channelsDone($) {
   $ch_table = $additive_info if ($Variant eq 'teXXas_RSS');
 
   $hash->{helper}{Programm} = $ch_table;
-  CommandAttr($hash,"$name Variant $Variant") if ($Variant ne 'unknown');
+
+  if ($Variant ne 'unknown') {
+    Log3 $name, 4, "$name: nonBlock_available_channelsDone found variant=$Variant for attr";
+    CommandAttr($hash,"$name Variant $Variant");
+  }
   FW_directNotify("FILTER=$name", "#FHEMWEB:$FW_wname", "location.reload('true')", "");               # reload Webseite
 
   if (AttrVal($name, 'Ch_select', undef)) {
@@ -1339,19 +1347,20 @@ sub EPG_nonBlock_available_channelsDone($) {
   }
 
   $hash->{helper}{Channels_available} = \@Channels_available;
+  return;
 }
 
 #####################
-sub EPG_nonBlock_loadEPG_v1($) {
+sub EPG_nonBlock_loadEPG_v1 {
   my ($string) = @_;
   my ($name, $EPG_file_name, $cmd, $cmd2) = split("\\|", $string);
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
   my $Ch_sort = AttrVal($name, 'Ch_sort', undef);
   my $FavDesc = AttrVal($name, 'FavDesc', undef) if ($cmd eq 'loadEPG_FavDesc');
-  my @FavDesc_array = split(";",$FavDesc) if ($FavDesc);
+  my @FavDesc_array = split(';',$FavDesc) if ($FavDesc);
   my $FavDesc_found = 0;
   my $FavTitle = AttrVal($name, 'FavTitle', undef) if ($cmd eq 'loadEPG_FavTitle');
-  my @FavTitle_array = split(";",$FavTitle) if ($FavTitle);
+  my @FavTitle_array = split(';',$FavTitle) if ($FavTitle);
   my $FavTitle_found = 0;
 
   my $hash = $defs{$name};
@@ -1385,8 +1394,8 @@ sub EPG_nonBlock_loadEPG_v1($) {
   my $today_start = '';               # today time start
   my $EPG_file_last_timestamp = '';   # last timestamp on file
 
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
-  my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
+  my @Ch_sort_array = split(',',$Ch_sort) if ($Ch_sort);
 
   if ($TimeLocaL_GMT_Diff < 0) {
     $TimeLocaL_GMT_Diff = abs($TimeLocaL_GMT_Diff);
@@ -1432,7 +1441,7 @@ sub EPG_nonBlock_loadEPG_v1($) {
   Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | TimeNow          -> $TimeNow";
 
   if (-e "./FHEM/EPG/$EPG_file_name") {
-    open (FileCheck,"<./FHEM/EPG/$EPG_file_name");
+    open (FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name");
       while (<FileCheck>) {
         if ($_ =~ /<programme start="(.*\s+(.*))" stop="(.*)" channel="(.*)"/) {      # find start | end | channel
           my $search = $hash->{helper}{Programm}{$4};
@@ -1641,7 +1650,7 @@ sub EPG_nonBlock_loadEPG_v1($) {
 }
 
 #####################
-sub EPG_nonBlock_loadEPG_v1Done($) {
+sub EPG_nonBlock_loadEPG_v1Done {
   my ($string) = @_;
   my ($name, $EPG_file_name, $EPG_info, $cmd, $cmd2, $json_HTML, $last_loaded, $EPG_cnt, $EPG_file_last_timestamp) = split("\\|", $string);
   my $hash = $defs{$name};
@@ -1649,7 +1658,7 @@ sub EPG_nonBlock_loadEPG_v1Done($) {
   my $Ch_Info_to_Reading = AttrVal($name, 'Ch_Info_to_Reading', 'no');
   my $EPG_auto_download = AttrVal($name, 'EPG_auto_download', 'no');
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
   my $room = AttrVal($name, 'room', '');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
@@ -1666,13 +1675,13 @@ sub EPG_nonBlock_loadEPG_v1Done($) {
       $hash->{helper}{last_cmd} = 'STOP';
       Log3 $name, 2, "$name: nonBlock_loadEPG_v1Done automatic download STOP, no current data!";
       readingsSingleUpdate($hash, 'state', $EPG_tt->{'loadEPG_v1Done_STOP'},1);
-      return undef;
+      return;
     }
 
     Log3 $name, 3, "$name: nonBlock_loadEPG_v1Done found 0 broadcast information, process automatic download started";
     $hash->{helper}{last_cmd} = 'automatic_loadFile';
     CommandGet($hash, "$name loadFile");
-    return undef;
+    return;
   }
 
   delete $hash->{helper}{automatic_cnt} if ($hash->{helper}{automatic_cnt});
@@ -1704,7 +1713,7 @@ sub EPG_nonBlock_loadEPG_v1Done($) {
       }
     }
 
-    if ($cmd =~ /loadEPG_now/ || $cmd =~ /loadEPG_Prime/ || $cmd =~ /loadEPG_today/) {
+    if ($cmd eq 'loadEPG_Prime' || $cmd eq 'loadEPG_now' || $cmd eq 'loadEPG_time' || $cmd eq 'loadEPG_today') {
       ## create Readings ##
       readingsBeginUpdate($hash);
 
@@ -1770,10 +1779,11 @@ sub EPG_nonBlock_loadEPG_v1Done($) {
 
   my $text = $cmd2 ne '' ? $cmd.'_'.$last_loaded : $cmd.'_'.$last_loaded;
   InternalTimer(gettimeofday()+EPG_InternalTimer_DELAY, "EPG_readingsSingleUpdate_later", "$name,$EPG_info,$text");
+  return;
 }
 
 #####################
-sub EPG_nonBlock_loadEPG_v2($) {
+sub EPG_nonBlock_loadEPG_v2 {
   my ($string) = @_;
   my ($name, $EPG_file_name, $cmd, $cmd2) = split("\\|", $string);
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
@@ -1784,14 +1794,14 @@ sub EPG_nonBlock_loadEPG_v2($) {
   Log3 $name, 4, "$name: nonBlock_loadEPG_v2 running, $cmd from file $EPG_file_name";
   Log3 $name, 5, "$name: nonBlock_loadEPG_v2 string=$string";
 
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
-  my @Ch_sort_array = split(",",$Ch_sort) if ($Ch_sort);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
+  my @Ch_sort_array = split(',',$Ch_sort) if ($Ch_sort);
 
   my $EPG_info = '';  
   my $array_cnt = -1;         # counter to verification data
 
   if (-e "./FHEM/EPG/$EPG_file_name") {
-    open (FileCheck,"<./FHEM/EPG/$EPG_file_name");
+    open (FileCheck, q{<}, "./FHEM/EPG/$EPG_file_name");
       my $string = '';
       while (<FileCheck>) {
         $string .= $_;
@@ -1885,13 +1895,13 @@ sub EPG_nonBlock_loadEPG_v2($) {
 }
 
 #####################
-sub EPG_nonBlock_loadEPG_v2Done($) {
+sub EPG_nonBlock_loadEPG_v2Done {
   my ($string) = @_;
   my ($name, $EPG_file_name, $EPG_info, $cmd, $json_HTML) = split("\\|", $string);
   my $hash = $defs{$name};
   my $Ch_Info_to_Reading = AttrVal($name, 'Ch_Info_to_Reading', 'no');
   my $Ch_select = AttrVal($name, 'Ch_select', undef);
-  my @Ch_select_array = split(",",$Ch_select) if ($Ch_select);
+  my @Ch_select_array = split(',',$Ch_select) if ($Ch_select);
   my $room = AttrVal($name, 'room', '');
   my $FW_wname = !$FW_wname ? 'WEB' : $FW_wname;
 
@@ -1911,7 +1921,7 @@ sub EPG_nonBlock_loadEPG_v2Done($) {
       }
     }
 
-    if ($cmd =~ /loadEPG_(Prime|now)/) {
+    if ($cmd eq 'loadEPG_Prime' || $cmd eq 'loadEPG_now') {
       ## create Readings ##
       readingsBeginUpdate($hash);
 
@@ -1937,22 +1947,24 @@ sub EPG_nonBlock_loadEPG_v2Done($) {
 
   FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:$FW_wname", "location.reload('true')", "");    # reload Webseite
   InternalTimer(gettimeofday()+EPG_InternalTimer_DELAY, "EPG_readingsSingleUpdate_later", "$name,$EPG_info,$cmd");
+  return;
 }
 
 #####################
-sub EPG_nonBlock_abortFn($) {
+sub EPG_nonBlock_abortFn {
   my ($hash) = @_;
   my $name = $hash->{NAME};
   delete($hash->{helper}{RUNNING_PID});
 
   Log3 $name, 4, "$name: nonBlock_abortFn running";
   readingsSingleUpdate($hash, 'state', $EPG_tt->{'nonBlock_abortFn'},1);
+  return;
 }
 
 ##################### (name,one reading,or more readings with "," cut)
 sub EPG_readingsSingleUpdate_later {
   my ($param) = @_;
-  my @parameter = split(",", $param);
+  my @parameter = split(',', $param);
   my $hash = $defs{$parameter[0]};
 
   Log3 $parameter[0], 4, "$parameter[0]: readingsSingleUpdate_later running";
@@ -1962,10 +1974,11 @@ sub EPG_readingsSingleUpdate_later {
   readingsBulkUpdate($hash, 'EPG_file_last_timestamp', $hash->{helper}{EPG_file_last_timestamp}) if ($hash->{helper}{EPG_file_last_timestamp});
   readingsBulkUpdate($hash, 'EPG_last_loaded', $parameter[2]) if ($parameter[2]);
   readingsEndUpdate($hash, 1);
+  return;
 }
 
 #####################
-sub EPG_readingsDeleteChannel($) {
+sub EPG_readingsDeleteChannel {
   my ($hash) = @_;
   my $name = $hash->{NAME};
 
@@ -1975,10 +1988,11 @@ sub EPG_readingsDeleteChannel($) {
       readingsDelete($hash,$reading);
     }
   }
+  return;
 }
 
 #####################
-sub EPG_Reset_HELPER($) {
+sub EPG_Reset_HELPER {
   my ($hash) = @_;
   my $name = $hash->{NAME};
   Log3 $name, 5, "$name: Reset_HELPER is running";
@@ -1986,10 +2000,11 @@ sub EPG_Reset_HELPER($) {
   foreach my $value (qw(Channels_available EPG_file_last_timestamp HTML HTML_data_counter Programm last_cmd)) {
     delete $hash->{helper}{$value} if(defined($hash->{helper}{$value}));
   }
+  return;
 }
 
 #####################
-sub EPG_SyntaxCheck_for_JSON_v1($$$$) {
+sub EPG_SyntaxCheck_for_JSON_v1 {
   my ($hash, $title, $subtitle, $desc) = @_;
   my $name = $hash->{NAME};
   my @values;
@@ -2089,7 +2104,7 @@ sub EPG_SyntaxCheck_for_JSON_v1($$$$) {
 }
 
 #####################
-sub EPG_SyntaxCheck_for_JSON_v2($$$) {
+sub EPG_SyntaxCheck_for_JSON_v2 {
   my ($hash, $title, $desc) = @_;
   my $name = $hash->{NAME};
   my @values;
@@ -2137,7 +2152,7 @@ sub EPG_SyntaxCheck_for_JSON_v2($$$) {
 ##################### ( valid Format´s for Date.parse() )
 # 20200116101500 +0100 to 2020-01-16T10:15:00
 # 20200116101500 +0100 to 2020-01-16 10:15:00
-sub EPG_Time_toISO_v1($) {
+sub EPG_Time_toISO_v1 {
   my($time) = @_;
 
   $time = substr($time,0,4).'-'.substr($time,4,2).'-'.substr($time,6,2).' '.substr($time,8,2).':'.substr($time,10,2).':'.substr($time,12,2);  
@@ -2147,7 +2162,7 @@ sub EPG_Time_toISO_v1($) {
 ##################### ( valid Format´s for Date.parse() )
 # 17.01.2020 20:15 - 21:15 to 2020-01-17T20:15:00
 # 17.01.2020 20:15 - 21:15 to 2020-01-17 20:15:00
-sub EPG_StartEnd_toISO_v2($$) {
+sub EPG_StartEnd_toISO_v2 {
   my($start, $end) = @_;
 
   $start = substr($start,6,4).'-'.substr($start,3,2).'-'.substr($start,0,2).' '.substr($start,11,2).':'.substr($start,14,2).':00';
@@ -2174,30 +2189,30 @@ sub EPG_StartEnd_toISO_v2($$) {
 <a name="EPG"></a>
 <h3>EPG Modul</h3>
 <ul>
-The EPG module fetches the TV broadcast information from various sources.<br>
-This is a module which retrieves the data for an electronic program guide and displays it immediately. (example: alternative for HTTPMOD + Readingsgroup & other)<br><br>
-<u>The module has dependencies:</u><br>
-<ul>
-<li>Encode (encode encode_utf8 decode_utf8)</li>
-<li>JSON (encode decode_json)</li>
-<li>XML::Simple</li>
-<li>gzip</li>
-<li>xz (xz-utils)</li>
-</ul><br>
-<i>Depending on the source and host country, the information can be slightly differentiated.<br> Each variant has its own read-in routine. When new sources become known, the module can be extended at any time.</i>
-<br><br>
-You have to choose a source and only then can the data of the TV Guide be displayed.<br>
-The specifications for the attribute Variant | DownloadFile and DownloadURL are mandatory.
-<br><br>
-<ul>
-  <u>Currently the following file extensions are supported</u><br>
-  <li>.gz</li>
-  <li>.xml</li>
-  <li>.xml.gz</li>
-  <li>.xz</li>
-  <br>
-  <u>Currently the following services are supported:</u>
-  <li>Rytec (Rytec EPG Downloader)<br><br>
+  The EPG module fetches the TV broadcast information from various sources.<br>
+  This is a module which retrieves the data for an electronic program guide and displays it immediately. (example: alternative for HTTPMOD + Readingsgroup & other)<br><br>
+  <u>The module has dependencies:</u><br>
+  <ul>
+    <li>Encode (encode encode_utf8 decode_utf8)</li>
+    <li>JSON (encode decode_json)</li>
+    <li>XML::Simple</li>
+    <li>gzip</li>
+    <li>xz (xz-utils)</li>
+  </ul><br>
+  <i>Depending on the source and host country, the information can be slightly differentiated.<br> Each variant has its own read-in routine. When new sources become known, the module can be extended at any time.</i>
+  <br><br>
+  You have to choose a source and only then can the data of the TV Guide be displayed.<br>
+  The specifications for the attribute Variant | DownloadFile and DownloadURL are mandatory.
+  <br><br>
+  <ul>
+    <u>Currently the following file extensions are supported</u><br>
+    <li>.gz</li>
+    <li>.xml</li>
+    <li>.xml.gz</li>
+    <li>.xz</li>
+    <br>
+    <u>Currently the following services are supported:</u>
+    <li>Rytec (Rytec EPG Downloader)<br><br>
       well-known sources:<br>
       <ul>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Basic.xz <small>&nbsp;&nbsp;(x)</small></li>
@@ -2213,18 +2228,18 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
         <li>http://rytecepg.epgspot.com/epg_data <small>&nbsp;&nbsp;(x)</small></li>
         <li>https://rytec.ricx.nl/epg_data <small>&nbsp;&nbsp;(x)</small></li>
       </ul><br>
-  </li>
-  <li> IPTV_XML (<a href="https://iptv.community/threads/epg.5423" target="_blank">IPTV.community</a>) </li>
-  <li> teXXas.de - RSS (<a href="http://www.texxas.de/rss/" target="_blank">TV-Programm RSS Feed</a>) </li>
-  <li> xmltv.se (<a href="https://xmltv.se" target="_blank">Provides XMLTV schedules for Europe</a>) </li>
-</ul>
-<br><br>
+    </li>
+    <li> IPTV_XML (<a href="https://iptv.community/threads/epg.5423" target="_blank">IPTV.community</a>) </li>
+    <li> teXXas.de - RSS (<a href="http://www.texxas.de/rss/" target="_blank">TV-Programm RSS Feed</a>) </li>
+    <li> xmltv.se (<a href="https://xmltv.se" target="_blank">Provides XMLTV schedules for Europe</a>) </li>
+  </ul>
+  <br><br>
 
-<b>Define</b><br>
+  <b>Define</b><br>
   <ul><code>define &lt;NAME&gt; EPG</code></ul>
-<br><br>
+  <br><br>
 
-<b>Get</b><br>
+  <b>Get</b><br>
   <ul>
     <a name="available_channels"></a>
     <li>available_channels: retrieves all available channels</li><a name=""></a>
@@ -2245,47 +2260,64 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
     <a name="loadFile"></a>
     <li>loadFile: load the file with the information</li><a name=""></a>
   </ul>
-<br><br>
+  <br><br>
 
-<b>Attribute</b><br>
+  <b>Attribute</b><br>
   <ul><li><a href="#disable">disable</a></li></ul><br>
-  <ul><li><a name="Ch_commands">Ch_commands</a><br>
-  This allows commands to be assigned to the transmitters, which are executed when the transmitter is clicked.<br>
-  The transmitter is shown as a link in the table. Important, take over the channel name correctly!<br><br>
-  <u>Example code to assign a FHEM command to 2 transmitters:</u><br>
-  <code>{<br>
-  "Das Erste" => "set Fernsehr_LG channel 1",<br>
-  "ZDF" => "set Lampe off"<br>
-  }</code><br></a></ul><br>
-  <ul><li><a name="Ch_select">Ch_select</a><br>
-  This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired channels.<br>
-  <i>Normally you do not have to edit this attribute manually.</i></li><a name=" "></a></ul><br>
-  <ul><li><a name="Ch_sort">Ch_sort</a><br>
-  This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired new channelnumbre.<br>
-  <i>Normally you do not have to edit this attribute manually. Once you clear this attribute, there is no manual sort!</i></li><a name=" "></a></ul><br>
+  <ul>
+    <li><a name="Ch_commands">Ch_commands</a><br>
+    This allows commands to be assigned to the transmitters, which are executed when the transmitter is clicked.<br>
+    The transmitter is shown as a link in the table. Important, take over the channel name correctly!<br><br>
+    <u>Example code to assign a FHEM command to 2 transmitters:</u><br>
+    <code>{<br>
+    "Das Erste" => "set Fernsehr_LG channel 1",<br>
+    "ZDF" => "set Lampe off"<br>
+    }</code><br></a>
+  </ul><br>
+  <ul>
+    <li><a name="Ch_select">Ch_select</a><br>
+    This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired channels.<br>
+    <i>Normally you do not have to edit this attribute manually.</i></li><a name=" "></a>
+  </ul><br>
+  <ul>
+    <li><a name="Ch_sort">Ch_sort</a><br>
+    This attribute will be filled automatically after entering the control panel "<code>list of all available channels</code>" and defined the desired new channelnumbre.<br>
+    <i>Normally you do not have to edit this attribute manually. Once you clear this attribute, there is no manual sort!</i></li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Ch_Info_to_Reading">Ch_Info_to_Reading</a><br>
-  You can write the data in readings (yes | no = default)</a></ul><br>
+    You can write the data in readings (yes | no = default)</a>
+  </ul><br>
   <ul><li><a name="DownloadFile">DownloadFile</a><br>
-  File name of the desired file containing the information.</li><a name=" "></a></ul><br>
+    File name of the desired file containing the information.</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="DownloadURL">DownloadURL</a><br>
-  Website URL where the desired file is stored.</li><a name=" "></a></ul><br>
+    Website URL where the desired file is stored.</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="EPG_auto_download">EPG_auto_download</a><br>
-  This enables the automatic download of the EPG file to be activated.<br>As soon as absolutely no EPG information is available, a new download is initiated. (yes | no = default)</a></ul><br>
+    This enables the automatic download of the EPG file to be activated.<br>As soon as absolutely no EPG information is available, a new download is initiated. (yes | no = default)</a>
+  </ul><br>
   <ul><li><a name="EPG_auto_update">EPG_auto_update</a><br>
-  This enables the automatic update of the view data in the front end. The setting is effective for a FHEM restart, where the data is loaded immediately or when you click on the room view.
-  The attribute has no influence on the detailed view. (yes | no = default)</a></ul><br>
+    This enables the automatic update of the view data in the front end. The setting is effective for a FHEM restart, where the data is loaded immediately or when you click on the room view.
+    The attribute has no influence on the detailed view. (yes | no = default)</a>
+  </ul><br>
   <ul><li><a name="FavDesc">FavDesc</a><br>
-  Names of programs which are searched for separately. (values ​​must be separated by a semicolon)</a></ul><br>
+    Names of programs which are searched for separately. (values ​​must be separated by a semicolon)</a>
+  </ul><br>
   <ul><li><a name="FavTitle">FavTitle</a><br>
-  Names of programs which are searched for separately. (values ​​must be separated by a semicolon)</a></ul><br>
+    Names of programs which are searched for separately. (values ​​must be separated by a semicolon)</a>
+  </ul><br>
   <ul><li><a name="HTTP_TimeOut">HTTP_TimeOut</a><br>
-  Maximum time in seconds for the download. (default 10 | maximum 90)</li><a name=" "></a></ul><br>
+    Maximum time in seconds for the download. (default 10 | maximum 90)</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Table">Table</a><br>
-  Displays the EPG data in a predefined table. (on = default | off) </li><a name=" "></a></ul><br>
+    Displays the EPG data in a predefined table. (on = default | off) </li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Table_view_Subtitle">Table_view_Subtitle</a><br>
-  Displays additional information of the shipment as far as available.</li><a name=" "></a></ul><br>
+    Displays additional information of the shipment as far as available.</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Variant">Variant</a><br>
-  Processing variant according to which method the information is processed or read.</li><a name=" "></a></ul>
+    Processing variant according to which method the information is processed or read.</li><a name=" "></a>
+  </ul>
 
 =end html
 
@@ -2295,32 +2327,32 @@ The specifications for the attribute Variant | DownloadFile and DownloadURL are 
 <a name="EPG"></a>
 <h3>EPG Modul</h3>
 <ul>
-Das EPG Modul holt die TV - Sendungsinformationen aus verschiedenen Quellen.<br>
-Es handelt sich hiermit um einen Modul welches die Daten f&uuml;r einen elektronischen Programmf&uuml;hrer abruft und sofort darstellt. (Bsp: Alternative f&uuml;r HTTPMOD + Readingsgroup & weitere)<br><br>
-<u>Das Modul besitzt Abh&auml;ngigkeiten:</u><br>
-<ul>
-<li>Encode (encode encode_utf8 decode_utf8)</li>
-<li>JSON (encode decode_json)</li>
-<li>XML::Simple</li>
-<li>gzip</li>
-<li>xz (xz-utils)</li>
-</ul><br>
+  Das EPG Modul holt die TV - Sendungsinformationen aus verschiedenen Quellen.<br>
+  Es handelt sich hiermit um einen Modul welches die Daten f&uuml;r einen elektronischen Programmf&uuml;hrer abruft und sofort darstellt. (Bsp: Alternative f&uuml;r HTTPMOD + Readingsgroup & weitere)<br><br>
+  <u>Das Modul besitzt Abh&auml;ngigkeiten:</u><br>
+  <ul>
+    <li>Encode (encode encode_utf8 decode_utf8)</li>
+    <li>JSON (encode decode_json)</li>
+    <li>XML::Simple</li>
+    <li>gzip</li>
+    <li>xz (xz-utils)</li>
+  </ul><br>
 
-<i>Je nach Quelle und Aufnahmeland k&ouml;nnen die Informationen bei Ihnen geringf&uuml;gig abweichen.<br> Jede Variante besitzt ihre eigene Einleseroutine. Beim bekanntwerden neuer Quellen kann das Modul jederzeit erweitert werden.</i>
-<br><br>
-Sie m&uuml;ssen sich f&uuml;r eine Quelle entscheiden und erst danach k&ouml;nnen Daten des TV-Guides dargestellt werden.<br>
-Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind zwingend notwendig.
-<br><br>
-<ul>
-  <u>Derzeit werden folgende Dateiendungen unterst&uuml;tzt:</u><br>
-  <li>.gz</li>
-  <li>.xml</li>
-  <li>.xml.gz</li>
-  <li>.xz</li>
-  <br>
+  <i>Je nach Quelle und Aufnahmeland k&ouml;nnen die Informationen bei Ihnen geringf&uuml;gig abweichen.<br> Jede Variante besitzt ihre eigene Einleseroutine. Beim bekanntwerden neuer Quellen kann das Modul jederzeit erweitert werden.</i>
+  <br><br>
+  Sie m&uuml;ssen sich f&uuml;r eine Quelle entscheiden und erst danach k&ouml;nnen Daten des TV-Guides dargestellt werden.<br>
+  Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind zwingend notwendig.
+  <br><br>
+  <ul>
+    <u>Derzeit werden folgende Dateiendungen unterst&uuml;tzt:</u><br>
+    <li>.gz</li>
+    <li>.xml</li>
+    <li>.xml.gz</li>
+    <li>.xz</li>
+    <br>
 
-  <u>Derzeit werden folgende Dienste unterst&uuml;tzt:</u>
-  <li>Rytec (Rytec EPG Downloader)<br><br>
+    <u>Derzeit werden folgende Dienste unterst&uuml;tzt:</u>
+    <li>Rytec (Rytec EPG Downloader)<br><br>
       bekannte Quellen:<br>
       <ul>
         <li>http://91.121.106.172/~rytecepg/epg_data/rytecDE_Basic.xz <small>&nbsp;&nbsp;(x)</small></li>
@@ -2336,18 +2368,18 @@ Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind z
         <li>http://rytecepg.epgspot.com/epg_data <small>&nbsp;&nbsp;(x)</small></li>
         <li>https://rytec.ricx.nl/epg_data <small>&nbsp;&nbsp;(x)</small></li>
       </ul><br>
-  </li>
-  <li> IPTV_XML (<a href="https://iptv.community/threads/epg.5423" target="_blank">IPTV.community</a>) </li>
-  <li> teXXas (<a href="http://www.texxas.de/rss/" target="_blank">teXXas.de - TV-Programm RSS Feed</a>) </li>
-  <li> xmltv.se (<a href="https://xmltv.se" target="_blank">Provides XMLTV schedules for Europe</a>) </li>
-</ul>
-<br><br>
+    </li>
+    <li> IPTV_XML (<a href="https://iptv.community/threads/epg.5423" target="_blank">IPTV.community</a>) </li>
+    <li> teXXas (<a href="http://www.texxas.de/rss/" target="_blank">teXXas.de - TV-Programm RSS Feed</a>) </li>
+    <li> xmltv.se (<a href="https://xmltv.se" target="_blank">Provides XMLTV schedules for Europe</a>) </li>
+  </ul>
+  <br><br>
 
-<b>Define</b><br>
+  <b>Define</b><br>
   <ul><code>define &lt;NAME&gt; EPG</code></ul>
-<br><br>
+  <br><br>
 
-<b>Get</b><br>
+  <b>Get</b><br>
   <ul>
     <a name="available_channels"></a>
     <li>available_channels: ruft alle verf&uuml;gbaren Kan&auml;le ab</li><a name=""></a>
@@ -2368,47 +2400,61 @@ Die Angaben f&uuml;r die Attribut Variante | DownloadFile und DownloadURL sind z
     <a name="loadFile"></a>
     <li>loadFile: l&auml;dt die Datei mit den Informationen herunter</li><a name=""></a>
   </ul>
-<br><br>
+  <br><br>
 
-<b>Attribute</b><br>
+  <b>Attribute</b><br>
   <ul><li><a href="#disable">disable</a></li></ul><br>
   <ul><li><a name="Ch_commands">Ch_commands</a><br>
-  Hiermit kann den Sendern Kommandos zuweisen, welche ausgef&uuml;hrt werden beim Klick auf den Sender.<br>
-  Die Darstellung des Senders erfolgt als Link in der Tabelle. Wichtig, Sendernamen richtig &uuml;bernehmen!<br><br>
-  <u>Beispielcode um 2 Sendern einen FHEM Befehl zuzuweisen:</u><br>
-  <code>{<br>
-  "Das Erste" => "set Fernsehr_LG channel 1",<br>
-  "ZDF" => "set Lampe off"<br>
-  }</code><br></a></ul><br>
+    Hiermit kann den Sendern Kommandos zuweisen, welche ausgef&uuml;hrt werden beim Klick auf den Sender.<br>
+    Die Darstellung des Senders erfolgt als Link in der Tabelle. Wichtig, Sendernamen richtig &uuml;bernehmen!<br><br>
+    <u>Beispielcode um 2 Sendern einen FHEM Befehl zuzuweisen:</u><br>
+    <code>{<br>
+    "Das Erste" => "set Fernsehr_LG channel 1",<br>
+    "ZDF" => "set Lampe off"<br>
+    }</code><br></a>
+  </ul><br>
   <ul><li><a name="Ch_select">Ch_select</a><br>
-  Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschten Kan&auml;le definierte.<br>
-  <i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten.</i></li><a name=" "></a></ul><br>
+    Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschten Kan&auml;le definierte.<br>
+    <i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten.</i></li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Ch_sort">Ch_sort</a><br>
-  Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschte neue Kanalnummer definierte.<br>
-  <i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten. Sobald man dieses Attribut l&ouml;scht, ist keine manuelle Sortierung vorhanden!</i></li><a name=" "></a></ul><br>
+    Dieses Attribut wird automatisch gef&uuml;llt nachdem man im Control panel mit "<code>list of all available channels</code>" die gew&uuml;nschte neue Kanalnummer definierte.<br>
+    <i>Im Normalfall muss man dieses Attribut nicht manuel bearbeiten. Sobald man dieses Attribut l&ouml;scht, ist keine manuelle Sortierung vorhanden!</i></li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Ch_Info_to_Reading">Ch_Info_to_Reading</a><br>
-  Hiermit kann man die Daten in Readings schreiben lassen (yes | no = default)</a></ul><br>
+    Hiermit kann man die Daten in Readings schreiben lassen (yes | no = default)</a>
+  </ul><br>
   <ul><li><a name="DownloadFile">DownloadFile</a><br>
-  Dateiname von der gew&uuml;nschten Datei welche die Informationen enth&auml;lt.</li><a name=" "></a></ul><br>
+    Dateiname von der gew&uuml;nschten Datei welche die Informationen enth&auml;lt.</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="DownloadURL">DownloadURL</a><br>
-  Webseiten URL wo die gew&uuml;nschten Datei hinterlegt ist.</li><a name=" "></a></ul><br>
+    Webseiten URL wo die gew&uuml;nschten Datei hinterlegt ist.</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="EPG_auto_download">EPG_auto_download</a><br>
-  Hiermit kann der automatische Download der EPG Datei aktiviert werden.<br>Sobald absolut keine EPG Informationen zur Verfügung stehen, wird ein neuer Download angestoßen. (yes | no = default)</a></ul><br>
+    Hiermit kann der automatische Download der EPG Datei aktiviert werden.<br>Sobald absolut keine EPG Informationen zur Verfügung stehen, wird ein neuer Download angestoßen. (yes | no = default)</a>
+  </ul><br>
   <ul><li><a name="EPG_auto_update">EPG_auto_update</a><br>
-  Hiermit kann die automatische Aktualisierung der Ansichtsdaten im FrontEnd aktiviert werden. Die Einstellung wirkt bei einem FHEM Restart, wo sofort die Daten geladen werden oder
-  bei einem Klick auf die Raumansicht. Auf die Detailansicht hat das Attribut keinen Einfluss. (yes | no = default)</a></ul><br>
+    Hiermit kann die automatische Aktualisierung der Ansichtsdaten im FrontEnd aktiviert werden. Die Einstellung wirkt bei einem FHEM Restart, wo sofort die Daten geladen werden oder
+    bei einem Klick auf die Raumansicht. Auf die Detailansicht hat das Attribut keinen Einfluss. (yes | no = default)</a>
+  </ul><br>
   <ul><li><a name="FavDesc">FavDesc</a><br>
-  Namen von Beschreibungen einer Sendung welche gezielt gesucht werden k&ouml;nnen. (mehrere Werte m&uuml;ssen durch ein Semikolon getrennt werden)</a></ul><br>
+    Namen von Beschreibungen einer Sendung welche gezielt gesucht werden k&ouml;nnen. (mehrere Werte m&uuml;ssen durch ein Semikolon getrennt werden)</a>
+  </ul><br>
   <ul><li><a name="FavTitle">FavTitle</a><br>
-  Namen vom Titel einer Sendung welche gezielt gesucht werden k&ouml;nnen. (mehrere Werte m&uuml;ssen durch ein Semikolon getrennt werden)</a></ul><br>
+    Namen vom Titel einer Sendung welche gezielt gesucht werden k&ouml;nnen. (mehrere Werte m&uuml;ssen durch ein Semikolon getrennt werden)</a>
+  </ul><br>
   <ul><li><a name="HTTP_TimeOut">HTTP_TimeOut</a><br>
-  Maximale Zeit in Sekunden für den Download. (Standard 10 | maximal 90)</li><a name=" "></a></ul><br>
+    Maximale Zeit in Sekunden für den Download. (Standard 10 | maximal 90)</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Table">Table</a><br>
-  Zeigt die EPG-Daten in einer vordefinierten Tabelle an. (on = default | off) </li><a name=" "></a></ul><br>
+    Zeigt die EPG-Daten in einer vordefinierten Tabelle an. (on = default | off) </li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Table_view_Subtitle">Table_view_Subtitle</a><br>
-  Zeigt Zusatzinformation der Sendung an soweit verf&uuml;gbar.</li><a name=" "></a></ul><br>
+    Zeigt Zusatzinformation der Sendung an soweit verf&uuml;gbar.</li><a name=" "></a>
+  </ul><br>
   <ul><li><a name="Variant">Variant</a><br>
-  Verarbeitungsvariante, nach welchem Verfahren die Informationen verarbeitet oder gelesen werden.</li><a name=" "></a></ul>
+    Verarbeitungsvariante, nach welchem Verfahren die Informationen verarbeitet oder gelesen werden.</li><a name=" "></a>
+  </ul>
 
 =end html_DE
 
