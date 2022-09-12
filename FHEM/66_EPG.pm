@@ -1436,6 +1436,7 @@ sub EPG_nonBlock_loadEPG_v1($) {
       while (<FileCheck>) {
         if ($_ =~ /<programme start="(.*\s+(.*))" stop="(.*)" channel="(.*)"/) {      # find start | end | channel
           my $search = $hash->{helper}{Programm}{$4};
+          if (!defined($search)) { $search = $4; }
           #Log3 $name, 4, "$name: nonBlock_loadEPG_v1 | data for channel    -> $search";
           ($start, $hour_diff_read, $end, $Ch_id, $Ch_name) = ($1, $2, $3, $4, $search);
 
